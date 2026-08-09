@@ -22,6 +22,8 @@ PURPLE = (188, 140, 255)
 ORANGE = (255, 138, 76)
 
 MONO = "/System/Library/Fonts/Menlo.ttc"
+SANS = "/System/Library/Fonts/Supplemental/Arial.ttf"
+SANS_BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 PROBE = ImageDraw.Draw(Image.new("RGB", (1, 1)))
 
 
@@ -65,94 +67,62 @@ def terminal(path, lines, title, width_chars=86, size=26):
 
 
 def scheme(path):
-    """The pipeline diagram: two sources, one chain, an optional upload."""
-    title_f = ImageFont.truetype(MONO, 30, index=1)
-    body_f = ImageFont.truetype(MONO, 21)
-    tag_f = ImageFont.truetype(MONO, 19, index=1)
-    padx, gap, card_h, margin, merge = 34, 132, 156, 60, 62
+    """The pipeline, drawn like someone knocked it out in MS Paint.
 
-    sources = [
-        ("Spotify", ["public page:", "titles, artists, cover"], GREEN),
-        ("YouTube", ["the audio stream", "(yt-dlp)"], RED),
-    ]
-    nodes = [
-        ("sc-scrape", ["match, download,", "convert, tag"], BLUE),
-        ("Songs/<Album>/", ["tagged audio", "+ cover.jpg"], PURPLE),
-        ("SoundCloud", ["one set"], ORANGE),
-    ]
+    Flat fills, hard black outlines, no gradients or rounded corners. It sits on
+    white, so it reads the same in either README theme.
+    """
+    big = ImageFont.truetype(SANS_BOLD, 26)
+    small = ImageFont.truetype(SANS, 17)
+    tag = ImageFont.truetype(SANS_BOLD, 17)
 
-    def box_w(title, subs):
-        widest = max(
-            [PROBE.textlength(title, font=title_f)]
-            + [PROBE.textlength(s, font=body_f) for s in subs]
-        )
-        return int(widest) + padx * 2
+    # The classic Paint palette: pure, flat, unsubtle.
+    lime, scarlet = (0, 200, 80), (255, 40, 40)
+    lemon, sky, tangerine = (255, 225, 0), (0, 200, 255), (255, 140, 0)
+    ink, paper = (0, 0, 0), (255, 255, 255)
 
-    src_w = max(box_w(t, s) for t, s, _ in sources)
-    widths = [box_w(t, s) for t, s, _ in nodes]
-    chain_x = margin + src_w + merge + gap
-    width = chain_x + sum(widths) + gap * (len(widths) - 1) + margin
-    height = 580
-
-    img = Image.new("RGB", (width, height), BG)
+    width, height = 990, 330
+    img = Image.new("RGB", (width, height), paper)
     d = ImageDraw.Draw(img)
 
-    def card(x, y, w, h, title, subs, accent):
-        d.rounded_rectangle([x, y, x + w, y + h], radius=14, fill=CARD, outline=BORDER, width=2)
-        d.rounded_rectangle([x, y + 2, x + 6, y + h - 2], radius=3, fill=accent)
-        d.text(
-            (x + (w - PROBE.textlength(title, font=title_f)) / 2, y + h / 2 - 34),
-            title,
-            font=title_f,
-            fill=BRIGHT,
-        )
-        for i, line in enumerate(subs):
+    def box(x, y, w, h, label, fill, sub=None):
+        d.rectangle([x, y, x + w, y + h], fill=fill, outline=ink, width=4)
+        ty = y + h / 2 - (22 if sub else 13)
+        d.text((x + (w - d.textlength(label, font=big)) / 2, ty), label, font=big, fill=ink)
+        if sub:
             d.text(
-                (x + (w - PROBE.textlength(line, font=body_f)) / 2, y + h / 2 + 4 + i * 26),
-                line,
-                font=body_f,
-                fill=DIM,
+                (x + (w - d.textlength(sub, font=small)) / 2, ty + 30), sub, font=small, fill=ink
             )
 
-    def arrow(x1, x2, y, label=None, colour=DIM):
-        d.line([(x1, y), (x2 - 10, y)], fill=colour, width=3)
-        d.polygon([(x2, y), (x2 - 13, y - 8), (x2 - 13, y + 8)], fill=colour)
+    def arrow(x1, y1, x2, y2, label=None):
+        d.line([(x1, y1), (x2 - 12, y2)], fill=ink, width=4)
+        d.polygon([(x2, y2), (x2 - 16, y2 - 10), (x2 - 16, y2 + 10)], fill=ink)
         if label:
             d.text(
-                ((x1 + x2) / 2 - PROBE.textlength(label, font=tag_f) / 2, y - 36),
+                ((x1 + x2) / 2 - d.textlength(label, font=tag) / 2, y1 - 32),
                 label,
-                font=tag_f,
-                fill=colour,
+                font=tag,
+                fill=ink,
             )
 
-    mid, spread = 250, 132
-    top_y, bot_y = mid - spread, mid + spread
-    card(margin, top_y - card_h // 2, src_w, card_h, *sources[0])
-    card(margin, bot_y - card_h // 2, src_w, card_h, *sources[1])
+    mid, bw, bh = 165, 170, 78
+    box(30, 40, 150, bh, "Spotify", lime, "tags")
+    box(30, 212, 150, bh, "YouTube", scarlet, "audio")
 
-    # Both sources join one trunk before the pipeline.
-    trunk = margin + src_w + merge
-    for y in (top_y, bot_y):
-        d.line([(margin + src_w, y), (trunk, y)], fill=DIM, width=3)
-    d.line([(trunk, top_y), (trunk, bot_y)], fill=DIM, width=3)
-    arrow(trunk, chain_x, mid)
+    # Both sources meet, then one line into the tool.
+    trunk = 220
+    for y in (79, 251):
+        d.line([(180, y), (trunk, y)], fill=ink, width=4)
+    d.line([(trunk, 79), (trunk, 251)], fill=ink, width=4)
+    arrow(trunk, mid, 268, mid)
 
-    x = chain_x
-    for i, (title, subs, accent) in enumerate(nodes):
-        card(x, mid - card_h // 2, widths[i], card_h, title, subs, accent)
-        x += widths[i]
-        if i < len(nodes) - 1:
-            label, colour = ("--upload", ORANGE) if i == 1 else (None, DIM)
-            arrow(x, x + gap, mid, label, colour)
-            x += gap
+    box(268, mid - bh // 2, bw, bh, "sc-scrape", lemon)
+    arrow(438, mid, 496, mid)
+    box(496, mid - bh // 2, bw, bh, "Songs/", sky, "tagged + art")
+    # Wide gap here so the --upload label clears both boxes.
+    arrow(666, mid, 772, mid, "--upload")
+    box(772, mid - bh // 2, 188, bh, "SoundCloud", tangerine)
 
-    note = "Spotify supplies metadata only. Every byte of audio comes from YouTube."
-    d.text(
-        ((width - PROBE.textlength(note, font=body_f)) / 2, height - 58),
-        note,
-        font=body_f,
-        fill=DIM,
-    )
     img.save(path)
     print("%-20s %dx%d" % (path, width, height))
 
