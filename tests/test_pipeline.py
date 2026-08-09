@@ -1283,20 +1283,21 @@ class TestRunJob(unittest.TestCase):
 
     def test_a_deleted_file_is_redownloaded_despite_the_history(self):
         job = _job(2)
-        paths = []
 
         def fake_download(track, output_dir, opts, overwrite=False):
             path = Path(output_dir) / ("%s.mp3" % downloader.sanitize_filename(track.title))
             path.write_bytes(b"ID3")
-            paths.append(path)
             return DownloadResult.ok(track.query, track.title, path)
 
         with (
             mock.patch.object(downloader, "download_one", side_effect=fake_download),
             mock.patch.object(downloader, "build_ydl_opts", return_value={}),
         ):
-            pipeline.run_job(job, self.root, workers=2)
-            paths[0].unlink()
+            # Take the first track's path off the results, which are in track
+            # order. Collecting paths inside the worker would record completion
+            # order instead, and with two workers that is a coin toss.
+            first_run = pipeline.run_job(job, self.root, workers=2)
+            first_run[0].path.unlink()
             with mock.patch.object(downloader, "download_one", side_effect=fake_download) as again:
                 results = pipeline.run_job(job, self.root, workers=2)
 

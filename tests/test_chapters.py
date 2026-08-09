@@ -53,8 +53,8 @@ _SILENT_MP3 = None
 def setUpModule():
     """Build a real MP3 once; tagging a fabricated byte string proves nothing."""
     global _SILENT_MP3
-    ffmpeg = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
-    if not Path(ffmpeg).exists():
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
         raise unittest.SkipTest("ffmpeg is required to build the fixture MP3")
     directory = tempfile.mkdtemp(prefix="chapters-fixture-")
     unittest.addModuleCleanup(shutil.rmtree, directory, ignore_errors=True)

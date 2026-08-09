@@ -8,6 +8,7 @@ nothing is ever uploaded.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -16,11 +17,15 @@ from unittest import mock
 
 from spot2cloud.soundcloud import uploader
 
-FFMPEG = "/opt/homebrew/bin/ffmpeg"
+#: Resolved from PATH. These fixtures are real audio because the point of
+#: scan_album is reading tags some other tool wrote; without ffmpeg they skip.
+FFMPEG = shutil.which("ffmpeg")
 
 
 def _write_audio(path: Path, **tags) -> Path:
     """One second of silence at ``path``, tagged with ``tags``."""
+    if FFMPEG is None:
+        raise unittest.SkipTest("ffmpeg is required to build the audio fixtures")
     path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
