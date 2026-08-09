@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from sc_scrape.soundcloud import uploader
+from spot2cloud.soundcloud import uploader
 
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 

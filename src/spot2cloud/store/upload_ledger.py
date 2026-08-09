@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from sc_scrape.store.json_store import JsonStore
+from spot2cloud.store.json_store import JsonStore
 
 __all__ = [
     "UPLOAD_HISTORY_DIR",

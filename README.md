@@ -1,11 +1,11 @@
-# sc-scrape
+# spot2cloud
 
 **Spotify lets you take nothing with you.** No file, no export, no copy of the
 library you spent years building. This gets your music onto your own disk, and
 your own recordings onto SoundCloud in one command. Early days, open source,
 fork it if you want to add to the project.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/S1MS4/sc-scrape/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/S1MS4/spot2cloud/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/S1MS4/spot2cloud/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
@@ -13,14 +13,14 @@ fork it if you want to add to the project.
 [![Playwright](https://img.shields.io/badge/Upload-Playwright-2EAD33?logo=playwright&logoColor=white)](#uploading-to-soundcloud)
 [![Ruff](https://img.shields.io/badge/Lint-Ruff-D7FF64?logo=ruff&logoColor=black)](pyproject.toml)
 [![Tests](https://img.shields.io/badge/Tests-279%20offline-brightgreen)](#building-from-source)
-[![Release](https://img.shields.io/github/v/release/S1MS4/sc-scrape?include_prereleases&label=Release)](https://github.com/S1MS4/sc-scrape/releases/latest)
-[![Code size](https://img.shields.io/github/languages/code-size/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape)
-[![Last commit](https://img.shields.io/github/last-commit/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape/commits/main)
-[![Issues](https://img.shields.io/github/issues/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape/issues)
-[![Stars](https://img.shields.io/github/stars/S1MS4/sc-scrape?style=social)](https://github.com/S1MS4/sc-scrape/stargazers)
+[![Release](https://img.shields.io/github/v/release/S1MS4/spot2cloud?include_prereleases&label=Release)](https://github.com/S1MS4/spot2cloud/releases/latest)
+[![Code size](https://img.shields.io/github/languages/code-size/S1MS4/spot2cloud)](https://github.com/S1MS4/spot2cloud)
+[![Last commit](https://img.shields.io/github/last-commit/S1MS4/spot2cloud)](https://github.com/S1MS4/spot2cloud/commits/main)
+[![Issues](https://img.shields.io/github/issues/S1MS4/spot2cloud)](https://github.com/S1MS4/spot2cloud/issues)
+[![Stars](https://img.shields.io/github/stars/S1MS4/spot2cloud?style=social)](https://github.com/S1MS4/spot2cloud/stargazers)
 
 <p align="center">
-  <img src="docs/photo1.png" alt="sc-scrape downloading an album" width="860">
+  <img src="docs/photo1.png" alt="spot2cloud downloading an album" width="860">
 </p>
 
 Paste a link, get a folder of tagged audio with cover art. Re-run it and it
@@ -40,7 +40,7 @@ skips what it already has.
    editable install and fails with a confusing setuptools error.
 3. Run it:
    ```bash
-   sc-scrape "https://open.spotify.com/playlist/<id>"
+   spot2cloud "https://open.spotify.com/playlist/<id>"
    ```
 
 Takes Spotify links and URIs, YouTube links, bare playlist names, or a text
@@ -50,7 +50,7 @@ file of any of those. **No Spotify account or API key needed.**
 `playwright install chromium`.
 
 <p align="center">
-  <img src="docs/photo2.png" alt="the album folder sc-scrape produces" width="860">
+  <img src="docs/photo2.png" alt="the album folder spot2cloud produces" width="860">
 </p>
 
 ## The pipeline
@@ -59,12 +59,16 @@ file of any of those. **No Spotify account or API key needed.**
   <img src="docs/scheme.png" alt="Spotify and YouTube into a tagged album folder, then optionally SoundCloud" width="900">
 </p>
 
+The name describes the workflow, not the audio path: a playlist you follow on
+one service becomes a release on your own profile on the other. Spotify itself
+hands out no audio, and this tool does not ask it for any.
+
 Nothing here circumvents DRM or an access control, and support for
 DRM-protected sources is out of scope. That is what separates a lawful tool
 from a circumvention device under DMCA 1201.
 
 Common flags: `-o` output dir, `-q` bitrate, `-w` workers, `--format`
-(mp3/opus/m4a/flac/wav), `--split-chapters`, `--watch`. Run `sc-scrape --help`
+(mp3/opus/m4a/flac/wav), `--split-chapters`, `--watch`. Run `spot2cloud --help`
 for the rest.
 
 YouTube's ceiling for music is about 130 kbps opus, so `-q 320` adds no
@@ -72,11 +76,11 @@ fidelity. Use `--format opus` to copy that stream instead of re-encoding it.
 
 ## Uploading to SoundCloud
 
-For recordings you own or control. `sc-scrape --login` opens SoundCloud's real
+For recordings you own or control. `spot2cloud --login` opens SoundCloud's real
 sign-in page; **no password ever passes through this tool.**
 
 ```bash
-sc-scrape -d "Songs/My Album" --upload --privacy private
+spot2cloud -d "Songs/My Album" --upload --privacy private
 ```
 
 **Still unproven.** SoundCloud's bot detection has blocked Playwright's bundled

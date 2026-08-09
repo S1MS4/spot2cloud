@@ -7,7 +7,7 @@ publishes that folder as one set.
 The urllib3 warning filter below runs here, in the package root, because Python
 executes this file before any submodule. That is the only place the ordering is
 guaranteed no matter how the package is entered -- console script, ``python -m``
-or a bare ``import sc_scrape.download.downloader`` from a test.
+or a bare ``import spot2cloud.download.downloader`` from a test.
 """
 
 import warnings

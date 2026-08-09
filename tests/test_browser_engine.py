@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from sc_scrape.soundcloud import browser_engine
+from spot2cloud.soundcloud import browser_engine
 
 
 def fake_route(resource_type, url="https://soundcloud.com/asset"):

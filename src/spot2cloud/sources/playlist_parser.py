@@ -31,7 +31,7 @@ import unicodedata
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
-from sc_scrape.models import (
+from spot2cloud.models import (
     DURATION_TOLERANCE,
     SEARCH_CANDIDATES,
     SOURCE_SEARCH,
@@ -690,7 +690,7 @@ def _spotify_any_job(text: str) -> PlaylistJob:
     strictly better data (real durations, per-track artists, whole playlists
     past the first page).
     """
-    from sc_scrape.sources.spotify_scrape import ScrapeError, scrape_spotify
+    from spot2cloud.sources.spotify_scrape import ScrapeError, scrape_spotify
 
     kind, ref_id = parse_spotify_ref(text)
     try:
@@ -730,7 +730,7 @@ def _youtube_job(text: str) -> PlaylistJob:
     Per-entry failures the resolver reports are logged, not raised: a playlist
     with three private videos should still download the rest.
     """
-    from sc_scrape.download.resolver import expand_playlist
+    from spot2cloud.download.resolver import expand_playlist
 
     title, tracks, failures = expand_playlist(text)
     for failure in failures or []:
@@ -828,7 +828,7 @@ def _name_job(text: str) -> PlaylistJob:
                 continue
             logger.info("name %r resolved to %s", name, playlist_url)
             try:
-                from sc_scrape.download.resolver import expand_playlist
+                from spot2cloud.download.resolver import expand_playlist
 
                 title, tracks, failures = expand_playlist(playlist_url)
             except Exception as exc:  # noqa: BLE001

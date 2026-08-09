@@ -1,19 +1,19 @@
-"""Argument dispatch and the download loop -- the body of the ``sc-scrape`` command.
+"""Argument dispatch and the download loop -- the body of the ``spot2cloud`` command.
 
 Accepts anything a user is likely to paste: a Spotify playlist or album link or
 URI, a YouTube playlist or video URL, or just a playlist *name* to search for.
-Each is resolved into a :class:`~sc_scrape.models.PlaylistJob` and handed to
-:func:`sc_scrape.download.pipeline.run_job` for concurrent downloading.
+Each is resolved into a :class:`~spot2cloud.models.PlaylistJob` and handed to
+:func:`spot2cloud.download.pipeline.run_job` for concurrent downloading.
 
 With ``--upload``, or ``--dir`` for a folder already on disk, the finished album
 folders are published to the user's own SoundCloud account through
-:mod:`sc_scrape.cli.upload`.
+:mod:`spot2cloud.cli.upload`.
 
 Stream discipline
 -----------------
 Everything diagnostic -- log records, the progress bar, per-track lines, error
 messages -- goes to **stderr**. The only thing on **stdout** is the final
-summary, so ``sc-scrape ... | grep failed`` stays useful and piping the tool
+summary, so ``spot2cloud ... | grep failed`` stays useful and piping the tool
 into another program never has to strip terminal escape codes.
 
 Exit codes
@@ -35,8 +35,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence, Tuple
 
-from sc_scrape.cli.args import build_parser, parse_quality
-from sc_scrape.cli.console import (
+from spot2cloud.cli.args import build_parser, parse_quality
+from spot2cloud.cli.console import (
     EXIT_FAILURE,
     EXIT_INTERRUPTED,
     EXIT_OK,
@@ -45,8 +45,8 @@ from sc_scrape.cli.console import (
     print_err,
     print_out,
 )
-from sc_scrape.cli.progress import ProgressReporter
-from sc_scrape.models import (
+from spot2cloud.cli.progress import ProgressReporter
+from spot2cloud.models import (
     STATUS_FAILED,
     STATUS_OK,
     STATUS_SKIPPED,
@@ -56,7 +56,7 @@ from sc_scrape.models import (
 
 __all__ = ["build_parser", "main"]
 
-logger = logging.getLogger("sc-scrape")
+logger = logging.getLogger("spot2cloud")
 
 
 def _unquote(text: str) -> str:
@@ -129,8 +129,8 @@ def _job_folder(output_dir, name: str):
     """
     from pathlib import Path
 
-    from sc_scrape.download.downloader import sanitize_filename
-    from sc_scrape.download.pipeline import FALLBACK_PLAYLIST_NAME
+    from spot2cloud.download.downloader import sanitize_filename
+    from spot2cloud.download.pipeline import FALLBACK_PLAYLIST_NAME
 
     raw = (name or "").strip()
     folder = sanitize_filename(raw) if raw else ""
@@ -140,8 +140,8 @@ def _job_folder(output_dir, name: str):
 #: ``--watch``/``--serve`` targets: module, callable, and the flag that asks
 #: for it. Both modules are optional, so a missing one must be a message.
 _DELEGATES = {
-    "watch": ("sc_scrape.services.watcher", "watch_loop", "--watch"),
-    "serve": ("sc_scrape.services.server", "serve_forever", "--serve"),
+    "watch": ("spot2cloud.services.watcher", "watch_loop", "--watch"),
+    "serve": ("spot2cloud.services.server", "serve_forever", "--serve"),
 }
 
 
@@ -179,7 +179,7 @@ def _delegate(mode: str, args: argparse.Namespace, quality: str) -> int:
 
 def _write_failure_log(results: Sequence[DownloadResult], output_dir) -> Optional[Any]:
     """Write ``skipped.txt``, returning its path or ``None``."""
-    from sc_scrape.download.downloader import write_failed_log
+    from spot2cloud.download.downloader import write_failed_log
 
     try:
         return write_failed_log(results, output_dir)
@@ -225,7 +225,7 @@ def _download_job(job: PlaylistJob, args: argparse.Namespace, quality: str, outp
     """Download one resolved playlist, with a progress bar around it."""
     # Imported per job so a patched or reloaded module is honoured, and so
     # --help never pays for yt-dlp's import cost.
-    from sc_scrape.download.pipeline import run_job
+    from spot2cloud.download.pipeline import run_job
 
     reporter = ProgressReporter(job, verbose=args.verbose)
     try:
@@ -252,13 +252,13 @@ def _run_downloads(
     upload: bool,
 ) -> _DownloadRun:
     """Resolve and download every input, in order."""
-    from sc_scrape.sources.playlist_parser import SpotifyCredentialsError
+    from spot2cloud.sources.playlist_parser import SpotifyCredentialsError
 
     run = _DownloadRun()
     try:
         for text in inputs:
             # Imported per input for the same reason as run_job above.
-            from sc_scrape.sources.playlist_parser import resolve_input
+            from spot2cloud.sources.playlist_parser import resolve_input
 
             try:
                 job = resolve_input(text)
@@ -307,7 +307,7 @@ def _preflight(args: argparse.Namespace):
     Returns the output directory, or ``None`` when the run cannot go ahead;
     the reason is already on stderr.
     """
-    from sc_scrape.download.downloader import FFmpegNotFoundError, check_ffmpeg, ensure_output_dir
+    from spot2cloud.download.downloader import FFmpegNotFoundError, check_ffmpeg, ensure_output_dir
 
     try:
         check_ffmpeg()
@@ -332,7 +332,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # --login writes the session file and nothing else, so it runs before any
     # other flag is even validated.
     if args.login:
-        from sc_scrape.cli.upload import run_login
+        from spot2cloud.cli.upload import run_login
 
         return run_login(args)
 
@@ -359,7 +359,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _delegate("serve", args, quality)
 
     if args.dir:
-        from sc_scrape.cli.upload import upload_only
+        from spot2cloud.cli.upload import upload_only
 
         return upload_only(args)
 
@@ -391,7 +391,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if upload and not run.interrupted and not run.setup_error:
         if run.folders:
             try:
-                from sc_scrape.cli.upload import upload_albums
+                from spot2cloud.cli.upload import upload_albums
 
                 upload_failed = upload_albums(run.folders, args)
             except KeyboardInterrupt:

@@ -24,8 +24,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError, GeoRestrictedError
 
-from sc_scrape.download.resolver import YDLLogger, classify_error
-from sc_scrape.models import (
+from spot2cloud.download.resolver import YDLLogger, classify_error
+from spot2cloud.models import (
     AUDIO_FORMAT_DEFAULT,
     BITRATE_DEFAULT,
     DEFAULT_OUTPUT_DIR,

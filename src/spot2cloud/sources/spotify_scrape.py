@@ -26,8 +26,8 @@ import urllib.error
 import urllib.request
 from typing import Dict, List, Optional, Tuple
 
-from sc_scrape.models import SOURCE_SPOTIFY, PlaylistJob, Track
-from sc_scrape.sources.playlist_parser import KIND_ALBUM, build_search_query, parse_spotify_ref
+from spot2cloud.models import SOURCE_SPOTIFY, PlaylistJob, Track
+from spot2cloud.sources.playlist_parser import KIND_ALBUM, build_search_query, parse_spotify_ref
 
 __all__ = [
     "FETCH_ATTEMPTS",

@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from sc_scrape.models import (
+from spot2cloud.models import (
     AUDIO_FORMATS,
     BITRATE_DEFAULT,
     DEFAULT_OUTPUT_DIR,
@@ -42,38 +42,38 @@ ATTACH_ENDPOINT_DEFAULT = "http://127.0.0.1:9222"
 EPILOG = """\
 examples:
   # a Spotify playlist link, straight from the "Share" menu
-  sc-scrape "https://open.spotify.com/playlist/EXAMPLEPLAYLISTID00000"
+  spot2cloud "https://open.spotify.com/playlist/EXAMPLEPLAYLISTID00000"
 
   # a playlist by name, plus a Spotify album URI, into a custom folder
-  sc-scrape -n "example playlist name" -p spotify:album:EXAMPLEALBUMID00000000 -o ~/Music/rips
+  spot2cloud -n "example playlist name" -p spotify:album:EXAMPLEALBUMID00000000 -o ~/Music/rips
 
   # a whole YouTube playlist at 320 kbps with 8 workers
-  sc-scrape -p "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx" -q 320 -w 8
+  spot2cloud -p "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx" -q 320 -w 8
 
   # a batch file (one entry per line, # comments allowed), re-fetching everything
-  sc-scrape -f playlists.txt --overwrite -v
+  spot2cloud -f playlists.txt --overwrite -v
 
   # a "Full Album Stream" video, cut into one tagged MP3 per chapter
-  sc-scrape --split-chapters -u "https://www.youtube.com/watch?v=EXAMPLEVID1"
+  spot2cloud --split-chapters -u "https://www.youtube.com/watch?v=EXAMPLEVID1"
 
   # keep watching playlists.txt, or serve the Spicetify extension endpoint
-  sc-scrape --watch
-  sc-scrape --serve
+  spot2cloud --watch
+  spot2cloud --serve
 
   # save a SoundCloud session once (a browser opens; you log in there)
-  sc-scrape --login
+  spot2cloud --login
 
   # download your own release and publish it publicly
-  sc-scrape --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
+  spot2cloud --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
 
   # upload a folder that is already on disk, keeping it private (-d implies --upload)
-  sc-scrape -d "Songs/Example Album" --privacy private --artist "Artist Name"
+  spot2cloud -d "Songs/Example Album" --privacy private --artist "Artist Name"
 
   # drive the Chrome you are already logged in to, over CDP
-  sc-scrape -d "Songs/Example Album" --upload --attach
+  spot2cloud -d "Songs/Example Album" --upload --attach
 
   # check the live page without attaching a file or pressing Upload
-  sc-scrape -d "Songs/Example Album" --upload --attach --dry-run
+  spot2cloud -d "Songs/Example Album" --upload --attach --dry-run
 """
 
 
@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     instead of argparse listing hundreds of choices.
     """
     parser = argparse.ArgumentParser(
-        prog="sc-scrape",
+        prog="spot2cloud",
         description=(
             "Download Spotify and YouTube playlists as tagged audio files (MP3 by "
             "default, see --format) with ID3 tags and embedded cover art.\n"

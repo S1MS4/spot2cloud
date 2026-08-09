@@ -28,7 +28,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence
 
-from sc_scrape.models import (
+from spot2cloud.models import (
     BITRATE_DEFAULT,
     MAX_WORKERS_DEFAULT,
     MAX_WORKERS_LIMIT,
@@ -37,7 +37,7 @@ from sc_scrape.models import (
     PlaylistJob,
     Track,
 )
-from sc_scrape.store.history import HistoryStore
+from spot2cloud.store.history import HistoryStore
 
 __all__ = [
     "FALLBACK_PLAYLIST_NAME",
@@ -162,8 +162,8 @@ def run_job(
     result rather than an exception; on ``KeyboardInterrupt`` the pool is cancelled
     and only the tracks that finished come back, still in order.
     """
-    from sc_scrape.download.album_art import save_folder_cover
-    from sc_scrape.download.downloader import (
+    from spot2cloud.download.album_art import save_folder_cover
+    from spot2cloud.download.downloader import (
         build_ydl_opts,
         download_chapters,
         download_one,
@@ -213,7 +213,7 @@ def run_job(
         one result per chapter; a video without them takes the normal path, so
         the flag is safe to leave on for a mixed playlist.
         """
-        from sc_scrape.sources.playlist_parser import match_track
+        from spot2cloud.sources.playlist_parser import match_track
 
         resolved, reason = match_track(track)
         if resolved is None:

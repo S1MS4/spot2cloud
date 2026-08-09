@@ -294,7 +294,7 @@ _PAGE_SCOPED = frozenset(
 
 def _engine():
     """browser_engine, imported late so scanning works without Playwright."""
-    from sc_scrape.soundcloud import browser_engine
+    from spot2cloud.soundcloud import browser_engine
 
     return browser_engine
 
@@ -414,7 +414,7 @@ def scan_album(folder) -> AlbumUpload:
 
 
 def _cover_name() -> str:
-    from sc_scrape.download.album_art import COVER_NAME
+    from spot2cloud.download.album_art import COVER_NAME
 
     return COVER_NAME
 
@@ -427,7 +427,7 @@ def prepare_for_upload(album: AlbumUpload, workdir=None) -> AlbumUpload:
     its accepted list. Already-transcoded files are reused, so a resumed run
     does not spend half an hour re-encoding the same album.
     """
-    from sc_scrape.download.downloader import check_ffmpeg, sanitize_filename
+    from spot2cloud.download.downloader import check_ffmpeg, sanitize_filename
 
     # Up front: discovering a missing ffmpeg on track 9 of 10 wastes the run,
     # and check_ffmpeg's error carries the install instructions.

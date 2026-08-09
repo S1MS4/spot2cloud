@@ -10,12 +10,12 @@ import logging
 import sys
 from typing import Optional
 
-from sc_scrape.cli.console import ASCII_ONLY, DESC_WIDTH, SYMBOLS, encodable, truncate
-from sc_scrape.models import STATUS_OK, STATUS_SKIPPED, DownloadResult, PlaylistJob
+from spot2cloud.cli.console import ASCII_ONLY, DESC_WIDTH, SYMBOLS, encodable, truncate
+from spot2cloud.models import STATUS_OK, STATUS_SKIPPED, DownloadResult, PlaylistJob
 
 __all__ = ["ProgressReporter", "UploadReporter"]
 
-logger = logging.getLogger("sc-scrape")
+logger = logging.getLogger("spot2cloud")
 
 
 class ProgressReporter:

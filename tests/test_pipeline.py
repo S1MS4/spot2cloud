@@ -24,10 +24,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import sc_scrape.store.history as history_mod
-from sc_scrape import models
-from sc_scrape.download import downloader, pipeline, resolver
-from sc_scrape.models import (
+import spot2cloud.store.history as history_mod
+from spot2cloud import models
+from spot2cloud.download import downloader, pipeline, resolver
+from spot2cloud.models import (
     STATUS_FAILED,
     STATUS_OK,
     STATUS_SKIPPED,
@@ -35,7 +35,7 @@ from sc_scrape.models import (
     PlaylistJob,
     Track,
 )
-from sc_scrape.sources import playlist_parser
+from spot2cloud.sources import playlist_parser
 
 # Several tests drive the modules down their failure paths, which log warnings
 # by design; the assertions, not the log lines, are what prove the behaviour.
@@ -761,7 +761,7 @@ class TestSpotifyPlaylistParsing(unittest.TestCase):
         # The API parsing path now runs only as a fallback -- resolve_input
         # scrapes first, because the Web API is Premium-gated. Force the
         # fallback, and keep the scraper away from the network.
-        from sc_scrape.sources import spotify_scrape
+        from spot2cloud.sources import spotify_scrape
 
         scrape = mock.patch.object(
             spotify_scrape, "fetch_page", side_effect=spotify_scrape.ScrapeError("no scrape")
@@ -866,7 +866,7 @@ class TestSpotifyAlbumParsing(unittest.TestCase):
         # The API parsing path now runs only as a fallback -- resolve_input
         # scrapes first, because the Web API is Premium-gated. Force the
         # fallback, and keep the scraper away from the network.
-        from sc_scrape.sources import spotify_scrape
+        from spot2cloud.sources import spotify_scrape
 
         scrape = mock.patch.object(
             spotify_scrape, "fetch_page", side_effect=spotify_scrape.ScrapeError("no scrape")
@@ -967,7 +967,7 @@ class TestSpotifyCredentials(unittest.TestCase):
         # failure surfaces as ScrapeError. SpotifyCredentialsError here would
         # send the user off to build a developer app they cannot use: Web API
         # access is behind Premium.
-        from sc_scrape.sources import spotify_scrape
+        from spot2cloud.sources import spotify_scrape
 
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch.object(

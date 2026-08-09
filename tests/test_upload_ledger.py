@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from sc_scrape.store.upload_ledger import (
+from spot2cloud.store.upload_ledger import (
     UPLOAD_VERSION,
     UploadLedger,
     set_key,
@@ -165,7 +165,7 @@ class AtomicWriteTests(LedgerTestCase):
 
     def test_a_failed_replace_leaves_no_temp_file_and_no_exception(self):
         ledger = UploadLedger(self.folder)
-        with mock.patch("sc_scrape.store.json_store.os.replace", side_effect=OSError("nope")):
+        with mock.patch("spot2cloud.store.json_store.os.replace", side_effect=OSError("nope")):
             ledger.record(set_key("A"))
         ledger_dir = UploadLedger(self.folder).path.parent
         leftovers = [p.name for p in ledger_dir.iterdir() if p.name.endswith(".tmp")]
@@ -174,7 +174,7 @@ class AtomicWriteTests(LedgerTestCase):
     def test_the_previous_ledger_survives_a_failed_write(self):
         ledger = UploadLedger(self.folder)
         ledger.record(set_key("A"), set_url="good")
-        with mock.patch("sc_scrape.store.json_store.os.replace", side_effect=OSError("nope")):
+        with mock.patch("spot2cloud.store.json_store.os.replace", side_effect=OSError("nope")):
             ledger.record(set_key("B"), set_url="lost")
         payload = json.loads(self.ledger_path.read_text(encoding="utf-8"))
         self.assertEqual(list(payload["entries"]), ["set:A"])
@@ -195,8 +195,8 @@ class AtomicWriteTests(LedgerTestCase):
             return real_replace(src, dst)
 
         with (
-            mock.patch("sc_scrape.store.json_store.os.fsync", spy_fsync),
-            mock.patch("sc_scrape.store.json_store.os.replace", spy_replace),
+            mock.patch("spot2cloud.store.json_store.os.fsync", spy_fsync),
+            mock.patch("spot2cloud.store.json_store.os.replace", spy_replace),
         ):
             UploadLedger(self.folder).record(set_key("A"))
         self.assertEqual(order, ["fsync", "replace"])
@@ -284,7 +284,7 @@ class UnwritableTests(LedgerTestCase):
         logging.disable(logging.NOTSET)
         self.addCleanup(logging.disable, logging.CRITICAL)
         ledger = UploadLedger(self.folder)
-        with self.assertLogs("sc_scrape.store.upload_ledger", level="WARNING") as captured:
+        with self.assertLogs("spot2cloud.store.upload_ledger", level="WARNING") as captured:
             ledger.record(set_key("A"), set_url="u")  # must not raise
             ledger.flush()  # must not raise either
         self.assertTrue(any("could not write" in line for line in captured.output))

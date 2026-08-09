@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sc-scrape"
+name = "spot2cloud"
 dynamic = ["version"]
 description = "Archive a music library you own, and publish recordings you made to SoundCloud"
 readme = "README.md"
@@ -40,18 +40,18 @@ dependencies = [
 dev = ["ruff>=0.6"]
 
 [project.scripts]
-sc-scrape = "sc_scrape.cli.app:main"
+spot2cloud = "spot2cloud.cli.app:main"
 
 [project.urls]
-Homepage = "https://github.com/S1MS4/sc-scrape"
-Source = "https://github.com/S1MS4/sc-scrape"
-Issues = "https://github.com/S1MS4/sc-scrape/issues"
+Homepage = "https://github.com/S1MS4/spot2cloud"
+Source = "https://github.com/S1MS4/spot2cloud"
+Issues = "https://github.com/S1MS4/spot2cloud/issues"
 
 [tool.hatch.version]
-path = "src/sc_scrape/__init__.py"
+path = "src/spot2cloud/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sc_scrape"]
+packages = ["src/spot2cloud"]
 
 [tool.ruff]
 line-length = 100
@@ -96,4 +96,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["sc_scrape"]
+known-first-party = ["spot2cloud"]

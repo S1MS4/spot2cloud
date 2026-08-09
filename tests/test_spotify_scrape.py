@@ -11,8 +11,8 @@ import unittest
 import urllib.error
 from unittest import mock
 
-from sc_scrape import models
-from sc_scrape.sources import spotify_scrape
+from spot2cloud import models
+from spot2cloud.sources import spotify_scrape
 
 ALBUM_ID = "EXAMPLEALBUMID00000000"
 COVER = "https://i.scdn.co/image/0000000000000000000000000000000000000000"
@@ -358,7 +358,7 @@ class TestPlaylistParserWiring(unittest.TestCase):
     """
 
     def setUp(self):
-        from sc_scrape.sources import playlist_parser
+        from spot2cloud.sources import playlist_parser
 
         self.playlist_parser = playlist_parser
         # The API path logs its own missing-credentials error on the way to the

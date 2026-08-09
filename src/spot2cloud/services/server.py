@@ -47,7 +47,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
-from sc_scrape.models import (
+from spot2cloud.models import (
     BITRATE_DEFAULT,
     DEFAULT_OUTPUT_DIR,
     MAX_WORKERS_DEFAULT,
@@ -97,7 +97,7 @@ PATH_PLAYLIST = "/playlist"
 CONNECTION_TIMEOUT = 30.0
 
 _USAGE = (
-    "sc-scrape local server\n"
+    "spot2cloud local server\n"
     "\n"
     '  POST /playlist   {"uri": "spotify:playlist:<id>"}  -> 202 queued\n'
     "  GET  /health                                       -> 200 status\n"
@@ -251,9 +251,9 @@ class JobWorker:
         # import would make this server unimportable (and untestable) without
         # it, and would slow every start.
         try:
-            from sc_scrape.download.downloader import ensure_output_dir
-            from sc_scrape.download.pipeline import run_job
-            from sc_scrape.sources.playlist_parser import resolve_input
+            from spot2cloud.download.downloader import ensure_output_dir
+            from spot2cloud.download.pipeline import run_job
+            from spot2cloud.sources.playlist_parser import resolve_input
         except Exception as exc:  # noqa: BLE001 - missing dependency, not a crash
             logger.error("server: cannot run jobs (%s: %s)", type(exc).__name__, exc)
             with self._lock:
@@ -316,7 +316,7 @@ class PlaylistRequestHandler(BaseHTTPRequestHandler):
     to parse JSON never chokes on the default HTML error page.
     """
 
-    server_version = "sc-scrape/%d" % API_VERSION
+    server_version = "spot2cloud/%d" % API_VERSION
     #: HTTP/1.0 keeps this connection-per-request, which sidesteps keep-alive
     #: bookkeeping entirely for a client that makes one call per click.
     protocol_version = "HTTP/1.0"

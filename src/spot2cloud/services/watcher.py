@@ -56,7 +56,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
-from sc_scrape.models import (
+from spot2cloud.models import (
     BITRATE_DEFAULT,
     DEFAULT_OUTPUT_DIR,
     MAX_WORKERS_DEFAULT,
@@ -64,7 +64,7 @@ from sc_scrape.models import (
     STATUS_OK,
     WATCH_FILE_NAME,
 )
-from sc_scrape.sources.playlist_parser import SpotifyCredentialsError
+from spot2cloud.sources.playlist_parser import SpotifyCredentialsError
 
 __all__ = [
     "COMMENT_PREFIX",
@@ -334,8 +334,8 @@ def _process_entry(
     """
     # Imported here, not at module scope: ``downloader`` hard-imports yt-dlp,
     # and the watcher must stay importable (and testable) without it.
-    from sc_scrape.download.pipeline import run_job
-    from sc_scrape.sources.playlist_parser import resolve_input
+    from spot2cloud.download.pipeline import run_job
+    from spot2cloud.sources.playlist_parser import resolve_input
 
     stamp = datetime.now().astimezone().isoformat(timespec="seconds")
     logger.info("watcher: new entry %r", entry)

@@ -21,9 +21,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from sc_scrape import models
-from sc_scrape.download import downloader, pipeline
-from sc_scrape.models import (
+from spot2cloud import models
+from spot2cloud.download import downloader, pipeline
+from spot2cloud.models import (
     STATUS_FAILED,
     STATUS_OK,
     STATUS_SKIPPED,
@@ -31,7 +31,7 @@ from sc_scrape.models import (
     PlaylistJob,
     Track,
 )
-from sc_scrape.sources import playlist_parser
+from spot2cloud.sources import playlist_parser
 
 # Failure paths are exercised on purpose and log by design; the assertions,
 # not the log lines, are what prove the behaviour.
@@ -484,7 +484,7 @@ class TestRunJobSplitChapters(unittest.TestCase):
     def test_history_is_recorded_per_chapter(self):
         self._run(_job("Plain", "Album"), split_chapters=True)
 
-        import sc_scrape.store.history as _h
+        import spot2cloud.store.history as _h
 
         ledger = json.loads(_h.HistoryStore(self.folder).path.read_text(encoding="utf-8"))
         self.assertEqual(

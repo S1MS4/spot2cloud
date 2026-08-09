@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
-from sc_scrape.cli.console import (
+from spot2cloud.cli.console import (
     EXIT_FAILURE,
     EXIT_INTERRUPTED,
     EXIT_OK,
@@ -22,12 +22,12 @@ from sc_scrape.cli.console import (
     print_err,
     print_out,
 )
-from sc_scrape.cli.progress import UploadReporter
-from sc_scrape.store.upload_ledger import UploadLedger, set_key, track_key
+from spot2cloud.cli.progress import UploadReporter
+from spot2cloud.store.upload_ledger import UploadLedger, set_key, track_key
 
 __all__ = ["run_login", "upload_albums", "upload_only"]
 
-logger = logging.getLogger("sc-scrape")
+logger = logging.getLogger("spot2cloud")
 
 #: Seconds ``--login`` waits for the user to finish logging in by hand. Long,
 #: because it can involve a password manager, an e-mail code and a captcha.
@@ -44,7 +44,7 @@ def _soundcloud(name: str):
     import importlib
 
     try:
-        return importlib.import_module("sc_scrape.soundcloud.%s" % name)
+        return importlib.import_module("spot2cloud.soundcloud.%s" % name)
     except ImportError as exc:
         print_err("Error: uploading needs %s, which could not be imported (%s)." % (name, exc))
         print_err("Reinstall with 'pip install -e .', then run 'playwright install chromium'.")
