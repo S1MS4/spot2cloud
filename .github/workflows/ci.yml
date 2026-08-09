@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # The suite is offline and standard-library only: no network, no ffmpeg, no
+    # browser, no secrets. It runs anywhere Python does.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest]
+        include:
+          # One run each on macOS and Windows: the filename sanitiser and the
+          # ledger's atomic rename are the parts that differ per platform.
+          - { python-version: "3.12", os: macos-latest }
+          - { python-version: "3.12", os: windows-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install -e .
+
+      - name: Test
+        run: python -m unittest discover -s tests -t . -p "test_*.py" -v
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+      - name: Ruff format
+        run: ruff format --check .
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Check metadata
+        run: twine check dist/*
+      - name: Confirm the console script is wired up
+        run: |
+          python -m pip install dist/*.whl
+          sc-scrape --help > /dev/null

@@ -1,0 +1,100 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sc-scrape"
+dynamic = ["version"]
+description = "Archive a music library you own, and publish recordings you made to SoundCloud"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "S1MS4" }]
+keywords = ["spotify", "youtube", "soundcloud", "music", "archiving", "yt-dlp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+
+# ffmpeg is a system dependency and cannot be installed from here; neither can
+# Playwright's browser binary (`playwright install chromium`). See the README.
+dependencies = [
+    "yt-dlp>=2024.8.6",
+    "spotipy>=2.23",
+    "mutagen>=1.47",
+    "tqdm>=4.66",
+    "playwright>=1.47",
+    "Pillow>=10.4",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[project.scripts]
+sc-scrape = "sc_scrape.cli.app:main"
+
+[project.urls]
+Homepage = "https://github.com/S1MS4/sc-scrape"
+Source = "https://github.com/S1MS4/sc-scrape"
+Issues = "https://github.com/S1MS4/sc-scrape/issues"
+Changelog = "https://github.com/S1MS4/sc-scrape/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/sc_scrape/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sc_scrape"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # import sorting
+    "B",         # bugbear
+    "C4",        # comprehensions
+    "UP",        # pyupgrade
+    "SIM",       # simplify
+    "RUF",       # ruff's own
+    "BLE",       # blind except -- the codebase already annotates these
+    "A",         # builtin shadowing
+    "N",         # naming
+    "PL",        # pylint subset
+]
+ignore = [
+    # This project deliberately targets 3.9, so %-formatting and typing.List
+    # stay: the logging calls want lazy %-args anyway.
+    "UP031", "UP032", "UP006", "UP007", "UP035", "UP045",
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917",  # CLI dispatch is branchy
+    "PLR2004",  # magic values in selector/timeout constants read fine in place
+    # Lazy imports are load-bearing here, not laziness: browser_engine imports
+    # Playwright at module scope and the download modules pull in yt-dlp, so a
+    # download-only user must not pay for either at startup. See CLAUDE.md.
+    "PLC0415",
+    "RUF001",   # en/em dashes in prose comments are deliberate
+    "RUF022",   # __all__ is grouped by concern, which beats alphabetical
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests reach into private helpers and build deliberately odd fixtures.
+"tests/*" = [
+    "N802", "N818",      # fakes mirror Playwright/yt-dlp naming
+    "PLW0603", "E702", "PLW0108", "SIM117",
+    "C401", "C402", "C404", "RUF015", "RUF059",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sc_scrape"]

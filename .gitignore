@@ -36,3 +36,9 @@ skipped.txt
 playlists.txt
 
 .DS_Store
+
+# Build artefacts and tooling caches.
+build/
+dist/
+*.egg-info/
+.ruff_cache/
