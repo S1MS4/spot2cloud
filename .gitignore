@@ -1,0 +1,38 @@
+# A live SoundCloud session: whoever holds this file IS logged in as the user,
+# no password needed. Never commit it, never paste it, delete it to log out.
+storage_state.json
+
+# Transcodes and cover art staged for upload; regenerated from the MP3s.
+.upload/
+
+# Downloaded audio.
+Songs/
+
+# Resume ledgers -- machine state, per-folder, meaningless to anyone else.
+download_history.json
+upload_history.json
+
+.venv/
+__pycache__/
+*.pyc
+
+# Local agent config -- machine-specific, and settings.local.json can name paths.
+.claude/
+
+# Ledger directories (models.HISTORY_DIR / upload_ledger.UPLOAD_HISTORY_DIR).
+.download_history/
+.upload_history/
+
+# Audio, in case a download ever lands outside the output directory.
+*.mp3
+*.opus
+*.m4a
+*.flac
+*.wav
+cover.jpg
+
+# Run artefacts.
+skipped.txt
+playlists.txt
+
+.DS_Store
