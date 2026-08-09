@@ -44,10 +44,12 @@ dist/
 .ruff_cache/
 
 # Local-only, not part of what ships:
-#   CLAUDE.md        agent instructions, personal workflow
-#   requirements.txt superseded by pyproject.toml, kept for local convenience
+#   CLAUDE.md            agent instructions, personal workflow
+#   requirements.txt     superseded by pyproject.toml, kept for local convenience
+#   docs/make_images.py  regenerates the README images; the PNGs are committed
 CLAUDE.md
 requirements.txt
+docs/make_images.py
 
 # Editor and tooling caches.
 .idea/
