@@ -81,7 +81,7 @@ ignore = [
     "PLR2004",  # magic values in selector/timeout constants read fine in place
     # Lazy imports are load-bearing here, not laziness: browser_engine imports
     # Playwright at module scope and the download modules pull in yt-dlp, so a
-    # download-only user must not pay for either at startup. See CLAUDE.md.
+    # download-only user must not pay for either at startup.
     "PLC0415",
     "RUF001",   # en/em dashes in prose comments are deliberate
     "RUF022",   # __all__ is grouped by concern, which beats alphabetical

@@ -42,3 +42,15 @@ build/
 dist/
 *.egg-info/
 .ruff_cache/
+
+# Local-only, not part of what ships:
+#   CLAUDE.md        agent instructions, personal workflow
+#   requirements.txt superseded by pyproject.toml, kept for local convenience
+CLAUDE.md
+requirements.txt
+
+# Editor and tooling caches.
+.idea/
+.vscode/
+.pytest_cache/
+.mypy_cache/

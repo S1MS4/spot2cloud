@@ -46,11 +46,8 @@ def _soundcloud(name: str):
     try:
         return importlib.import_module("sc_scrape.soundcloud.%s" % name)
     except ImportError as exc:
-        print_err("Error: uploading needs %s.py, which could not be imported (%s)." % (name, exc))
-        print_err(
-            "Make sure %s.py is next to main.py, then run 'pip install -r "
-            "requirements.txt' and 'playwright install chromium'." % name
-        )
+        print_err("Error: uploading needs %s, which could not be imported (%s)." % (name, exc))
+        print_err("Reinstall with 'pip install -e .', then run 'playwright install chromium'.")
         return None
 
 

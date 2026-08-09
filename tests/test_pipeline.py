@@ -8,7 +8,7 @@ actually calls (``resolver.YoutubeDL``, ``playlist_parser._flat_search``,
 exercise the real logic rather than a re-implementation of it.
 
 Only the standard library is used -- ``unittest`` plus ``unittest.mock`` -- so
-the test suite adds no dependency to ``requirements.txt``.
+the test suite adds no dependency to the project.
 """
 
 from __future__ import annotations

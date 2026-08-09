@@ -33,8 +33,11 @@ skips what it already has.
 2. Install the tool:
    ```bash
    python3 -m venv .venv && source .venv/bin/activate
+   pip install --upgrade pip
    pip install -e .
    ```
+   The pip upgrade matters: the one bundled with Python 3.9 is too old to do an
+   editable install and fails with a confusing setuptools error.
 3. Run it:
    ```bash
    sc-scrape "https://open.spotify.com/playlist/<id>"

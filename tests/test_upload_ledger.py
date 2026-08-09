@@ -1,7 +1,7 @@
 """Offline unit tests for the SoundCloud upload ledger.
 
 Hermetic: no network, no browser, no Playwright, and nothing outside the
-standard library, so the suite adds no dependency to ``requirements.txt``.
+standard library, so the suite adds no dependency to the project.
 """
 
 from __future__ import annotations
