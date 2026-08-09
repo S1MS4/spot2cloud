@@ -276,9 +276,12 @@ class UnwritableTests(LedgerTestCase):
     def test_an_unwritable_folder_logs_and_does_not_raise(self):
         if os.geteuid() == 0:  # pragma: no cover - root ignores the mode bits
             self.skipTest("root can write to a read-only directory")
-        mode = self.folder.stat().st_mode
-        os.chmod(self.folder, stat.S_IRUSR | stat.S_IXUSR)
-        self.addCleanup(os.chmod, self.folder, mode)
+        # The ledger directory, not the album folder: that is where flush writes.
+        ledger_dir = UploadLedger(self.folder).path.parent
+        ledger_dir.mkdir(parents=True, exist_ok=True)
+        mode = ledger_dir.stat().st_mode
+        os.chmod(ledger_dir, stat.S_IRUSR | stat.S_IXUSR)
+        self.addCleanup(os.chmod, ledger_dir, mode)
 
         logging.disable(logging.NOTSET)
         self.addCleanup(logging.disable, logging.CRITICAL)
@@ -290,7 +293,7 @@ class UnwritableTests(LedgerTestCase):
         # The record is still in memory, so the run it belongs to can carry on.
         self.assertTrue(ledger.has(set_key("A")))
 
-    def test_a_missing_album_folder_is_created_on_flush(self):
+    def test_a_missing_ledger_directory_is_created_on_flush(self):
         nested = self.folder / "nope" / "deeper"
         ledger = UploadLedger(nested)
         ledger.record(set_key("A"))

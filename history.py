@@ -338,19 +338,13 @@ class HistoryStore:
     def flush(self) -> None:
         """Write the ledger to disk atomically.
 
-        Writes a temp file alongside the target, ``fsync``s it, then
-        :func:`os.replace`s it over the real file - an atomic rename on POSIX
-        and on Windows - so readers see either the old ledger or the new one and
-        never a truncated one. The whole operation holds the lock, which
-        serialises concurrent flushes.
+        The temp file is created in the ledger directory, not the album folder,
+        so :func:`os.replace` stays a same-directory rename and is therefore
+        atomic even if the two ever land on different filesystems. Readers see
+        the old ledger or the new one, never a truncated one.
 
-        Returns:
-            None.
-
-        Raises:
-            Nothing. An :class:`OSError` is logged as a warning and swallowed:
-            a ledger that cannot be written must never invalidate downloads that
-            already succeeded.
+        An :class:`OSError` is logged and swallowed: a ledger that cannot be
+        written must never invalidate downloads that already succeeded.
         """
         with self._lock:
             payload = {
@@ -361,12 +355,11 @@ class HistoryStore:
             tmp_name = None
             try:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                self.playlist_dir.mkdir(parents=True, exist_ok=True)
                 handle = tempfile.NamedTemporaryFile(
                     mode="w",
                     encoding="utf-8",
-                    dir=str(self.playlist_dir),
-                    prefix=".%s." % HISTORY_DIR,
+                    dir=str(self.path.parent),
+                    prefix=".",
                     suffix=".tmp",
                     delete=False,
                 )

@@ -216,9 +216,10 @@ class UploadLedger:
     def flush(self) -> None:
         """Write the ledger to disk atomically; never raises.
 
-        Writes a temp file alongside the target, ``fsync``s it, then
-        :func:`os.replace`s it over the real file, so a reader sees either the
-        old ledger or the new one and never a truncated one.
+        The temp file is created in the ledger directory, not the album folder,
+        so :func:`os.replace` stays a same-directory rename and is therefore
+        atomic. A reader sees the old ledger or the new one, never a truncated
+        one.
         """
         with self._lock:
             payload = {
@@ -229,12 +230,11 @@ class UploadLedger:
             tmp_name = None
             try:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                self.album_folder.mkdir(parents=True, exist_ok=True)
                 handle = tempfile.NamedTemporaryFile(
                     mode="w",
                     encoding="utf-8",
-                    dir=str(self.album_folder),
-                    prefix=".%s." % UPLOAD_HISTORY_DIR,
+                    dir=str(self.path.parent),
+                    prefix=".",
                     suffix=".tmp",
                     delete=False,
                 )
