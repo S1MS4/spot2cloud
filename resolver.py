@@ -28,6 +28,7 @@ from yt_dlp.utils import GeoRestrictedError
 from models import youtube_extractor_args, DownloadResult, Track
 
 __all__ = [
+    "YDLLogger",
     "classify_error",
     "expand_playlist",
 ]
@@ -48,30 +49,31 @@ _FLAT_OPTS = {
 }
 
 
-class _YDLLogger:
-    """Adapter that routes yt-dlp's own output into this module's logger.
+class YDLLogger:
+    """Routes yt-dlp's duck-typed logger calls into a standard logger.
 
-    yt-dlp writes progress and diagnostics through a duck-typed logger object
-    exposing ``debug``/``info``/``warning``/``error``. Routing it here keeps all
-    output on stderr under the caller's logging configuration instead of yt-dlp
-    printing straight to the console.
+    yt-dlp writes progress and diagnostics through an object exposing
+    ``debug``/``info``/``warning``/``error``. Routing it here keeps all output
+    on stderr under the caller's logging configuration instead of yt-dlp
+    printing straight to the console. Takes the target logger so records keep
+    the name of the module that asked for the download.
     """
 
+    def __init__(self, target: logging.Logger) -> None:
+        self._log = target
+
     def debug(self, msg: str) -> None:
-        """Handle a yt-dlp debug/verbose line (also used for ordinary output)."""
-        logger.debug("%s", msg)
+        self._log.debug("%s", msg)
 
     def info(self, msg: str) -> None:
-        """Handle a yt-dlp informational line (demoted to DEBUG)."""
-        logger.debug("%s", msg)
+        # yt-dlp's "info" is routine chatter, not something the user asked for.
+        self._log.debug("%s", msg)
 
     def warning(self, msg: str) -> None:
-        """Handle a yt-dlp warning line."""
-        logger.warning("%s", msg)
+        self._log.warning("%s", msg)
 
     def error(self, msg: str) -> None:
-        """Handle a yt-dlp error line."""
-        logger.error("%s", msg)
+        self._log.error("%s", msg)
 
 
 def _flat_opts() -> Dict[str, Any]:
@@ -87,7 +89,7 @@ def _flat_opts() -> Dict[str, Any]:
     # Regenerated per call: dict() is a shallow copy, so the nested
     # extractor_args mapping would otherwise be shared between instances.
     opts["extractor_args"] = youtube_extractor_args()
-    opts["logger"] = _YDLLogger()
+    opts["logger"] = YDLLogger(logger)
     return opts
 
 

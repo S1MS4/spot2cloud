@@ -36,7 +36,7 @@ from models import (
     MAX_FILENAME_BYTES,
     SKIPPED_LOG_NAME,
 )
-from resolver import classify_error
+from resolver import classify_error, YDLLogger
 
 __all__ = [
     # Re-exported from models; callers already import these from here.
@@ -89,26 +89,6 @@ _FFMPEG_INSTALL_HINT = (
 class FFmpegNotFoundError(RuntimeError):
     """Raised when the ``ffmpeg`` executable cannot be located on ``PATH``."""
 
-
-class _YDLLogger:
-    """Duck-typed logger handed to yt-dlp so its output obeys our config.
-
-    Without it yt-dlp prints progress and diagnostics straight to the console,
-    bypassing whatever handlers the caller set up.
-    """
-
-    def debug(self, msg: str) -> None:
-        logger.debug("%s", msg)
-
-    def info(self, msg: str) -> None:
-        # yt-dlp is chatty at info level; demote it so normal runs stay quiet.
-        logger.debug("%s", msg)
-
-    def warning(self, msg: str) -> None:
-        logger.warning("%s", msg)
-
-    def error(self, msg: str) -> None:
-        logger.error("%s", msg)
 
 
 def check_ffmpeg() -> str:
@@ -246,7 +226,7 @@ def build_ydl_opts(
         "playlistend": 1,
         "default_search": "ytsearch",
         "extractor_args": youtube_extractor_args(),
-        "logger": _YDLLogger(),
+        "logger": YDLLogger(logger),
     }
 
 
@@ -374,7 +354,7 @@ def probe_existing_download(
         "default_search": "ytsearch",
         "extractor_args": youtube_extractor_args(),
         "socket_timeout": 30,
-        "logger": _YDLLogger(),
+        "logger": YDLLogger(logger),
     }
     if base_opts:
         for key in ("quiet", "no_warnings", "socket_timeout", "retries"):
@@ -669,7 +649,7 @@ def probe_chapters(
         "default_search": "ytsearch",
         "extractor_args": youtube_extractor_args(),
         "socket_timeout": 30,
-        "logger": _YDLLogger(),
+        "logger": YDLLogger(logger),
     }
     if opts:
         for key in ("socket_timeout", "retries"):
