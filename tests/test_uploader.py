@@ -22,6 +22,16 @@ from spot2cloud.soundcloud import uploader
 FFMPEG = shutil.which("ffmpeg")
 
 
+def _nowhere(*names) -> list:
+    """Expected upload paths, rendered the way the platform renders them.
+
+    ``uploader`` passes ``str(Path(...))`` to the browser, which is
+    backslash-separated on Windows, so a hardcoded "/nowhere/One.flac" only
+    matches on POSIX.
+    """
+    return [str(Path("/nowhere") / name) for name in names]
+
+
 def _write_audio(path: Path, **tags) -> Path:
     """One second of silence at ``path``, tagged with ``tags``."""
     if FFMPEG is None:
@@ -653,7 +663,7 @@ class UploadAlbumTests(unittest.TestCase):
             page.file_calls[0],
             (
                 _first("file_input"),
-                ["/nowhere/One.flac", "/nowhere/Two.flac", "/nowhere/Three.flac"],
+                _nowhere("One.flac", "Two.flac", "Three.flac"),
             ),
         )
         self.assertEqual(len([c for c in page.file_calls if c[0] == _first("file_input")]), 1)
@@ -692,7 +702,7 @@ class UploadAlbumTests(unittest.TestCase):
 
         uploader.upload_album(page, album)
 
-        self.assertIn((_first("artwork_input"), "/nowhere/cover.jpg"), page.file_calls)
+        self.assertIn((_first("artwork_input"), _nowhere("cover.jpg")[0]), page.file_calls)
 
     def test_a_missing_artwork_control_does_not_fail_the_upload(self):
         page, _ = self._session(without=("artwork_input", "artwork_button"))
@@ -743,7 +753,7 @@ class UploadAlbumTests(unittest.TestCase):
 
         uploader.upload_album(page, _album("One", "Two", "Three"))
 
-        self.assertEqual(page.file_calls[0][1], ["/nowhere/One.flac", "/nowhere/Three.flac"])
+        self.assertEqual(page.file_calls[0][1], _nowhere("One.flac", "Three.flac"))
 
     def test_an_album_that_is_entirely_uploaded_already_does_nothing(self):
         page, _ = self._session(hydration="git-rm", texts={_first("profile_track_title"): ["One"]})
@@ -759,7 +769,7 @@ class UploadAlbumTests(unittest.TestCase):
 
         uploader.upload_album(page, _album("One"), skip_existing=False)
 
-        self.assertEqual(page.file_calls[0][1], ["/nowhere/One.flac"])
+        self.assertEqual(page.file_calls[0][1], _nowhere("One.flac"))
 
     def test_a_broken_dedupe_check_does_not_block_the_upload(self):
         # Losing the optimisation is fine; losing the upload is not.
@@ -773,7 +783,7 @@ class UploadAlbumTests(unittest.TestCase):
 
         uploader.upload_album(page, _album("One"))
 
-        self.assertEqual(page.file_calls[0][1], ["/nowhere/One.flac"])
+        self.assertEqual(page.file_calls[0][1], _nowhere("One.flac"))
         self.assertIn(_first("submit_button"), page.clicks)
 
     def test_returns_the_link_the_success_panel_offers(self):

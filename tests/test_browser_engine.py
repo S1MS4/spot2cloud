@@ -289,6 +289,7 @@ class LoginTest(unittest.TestCase):
     def _writes_state(self, path):
         Path(path).write_text('{"cookies": []}')
 
+    @unittest.skipIf(os.name == "nt", "POSIX permission semantics")
     def test_saves_state_with_owner_only_permissions(self):
         factory, playwright = fake_playwright()
         _, context, _ = chain(playwright)

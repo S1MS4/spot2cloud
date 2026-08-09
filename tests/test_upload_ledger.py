@@ -271,6 +271,7 @@ class ContextManagerTests(LedgerTestCase):
 
 
 class UnwritableTests(LedgerTestCase):
+    @unittest.skipIf(os.name == "nt", "Windows ignores a read-only bit for the owner")
     def test_an_unwritable_folder_logs_and_does_not_raise(self):
         if os.geteuid() == 0:  # pragma: no cover - root ignores the mode bits
             self.skipTest("root can write to a read-only directory")
