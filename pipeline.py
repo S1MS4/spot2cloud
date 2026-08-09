@@ -56,15 +56,7 @@ ProgressCallback = Callable[[DownloadResult, int, int], None]
 
 
 def clamp_workers(workers: int) -> int:
-    """Clamp a worker count into ``1..MAX_WORKERS_LIMIT``.
-
-    Args:
-        workers: Requested thread count; may be nonsense (0, negative, huge, or
-            a non-integer that happens to be int-able).
-
-    Returns:
-        A usable thread count between 1 and :data:`models.MAX_WORKERS_LIMIT`.
-    """
+    """Clamp a requested worker count into ``1..MAX_WORKERS_LIMIT``."""
     try:
         requested = int(workers)
     except (TypeError, ValueError):
@@ -95,15 +87,6 @@ def _emit(
 
     Always called from the main thread, so the callback needs no locking of its
     own. A broken callback must not take the whole run down with it.
-
-    Args:
-        on_progress: Callback, or ``None`` to do nothing.
-        result: The outcome that just landed.
-        done: How many tracks have been accounted for, including this one.
-        total: Total tracks in the job.
-
-    Returns:
-        None.
     """
     if on_progress is None:
         return
@@ -166,35 +149,18 @@ def run_job(
 ) -> List[DownloadResult]:
     """Download every track of ``job`` concurrently into its own folder.
 
-    The job's folder is ``<output_dir>/<sanitised job name>/``. Tracks already
-    recorded in that folder's ledger *and* still present on disk are skipped
-    (unless ``overwrite``); a recorded track whose file has since been deleted
-    has its stale entry dropped and is downloaded again.
+    The folder is ``<output_dir>/<sanitised job name>/``. Tracks already recorded
+    in its ledger *and* still present on disk are skipped unless ``overwrite``; a
+    recorded track whose file has since been deleted has its stale entry dropped
+    and is downloaded again.
 
-    Args:
-        job: Playlist to process. ``job.tracks`` defines the result order.
-        output_dir: Root download directory; the playlist folder is created
-            beneath it.
-        quality: MP3 bitrate in kbps, passed through to ``build_ydl_opts``.
-        workers: Desired thread count, clamped to ``1..MAX_WORKERS_LIMIT``.
-        overwrite: Ignore the ledger and re-download everything.
-        verbose: Let yt-dlp log verbosely.
-        split_chapters: Split a track whose video carries chapter markers into
-            one MP3 per chapter, so a full-album stream becomes an album.
-        on_progress: Optional ``callback(result, done, total)`` invoked from the
-            main thread once per *result* (skips included). Exceptions from it
-            are logged and ignored.
+    ``on_progress`` is invoked from the main thread once per *result*, skips
+    included, and anything it raises is logged and ignored.
 
-    Returns:
-        One :class:`~models.DownloadResult` per track -- per chapter for a track
-        that got split -- in the job's original track order. On
-        ``KeyboardInterrupt`` only the tracks that finished are returned, still
-        in order.
-
-    Raises:
-        Nothing for per-track problems: a worker raising anything becomes a
-        ``STATUS_FAILED`` result. ``KeyboardInterrupt`` is caught, the pool is
-        cancelled and the partial results are returned.
+    Returns one result per track -- per chapter for a track that got split -- in
+    the job's original track order. A worker raising anything becomes a failed
+    result rather than an exception; on ``KeyboardInterrupt`` the pool is cancelled
+    and only the tracks that finished come back, still in order.
     """
     from album_art import save_folder_cover
     from downloader import (
@@ -259,7 +225,7 @@ def run_job(
         return [download_one(resolved, folder, opts, overwrite=overwrite)]
 
     try:
-        # --- resume pass (main thread, cheap, keeps ledger reads serial) ---
+        # Resume pass on the main thread: cheap, and it keeps ledger reads serial.
         pending: List[int] = []
         for index, track in enumerate(tracks):
             key = track.history_key()
@@ -293,7 +259,6 @@ def run_job(
             logger.info("pipeline: '%s' fully up to date, nothing to fetch", raw_name)
             return _flatten(results)
 
-        # --- concurrent pass ------------------------------------------------
         executor = ThreadPoolExecutor(max_workers=workers)
         future_to_index = {}
         try:

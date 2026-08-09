@@ -107,13 +107,9 @@ def check_ffmpeg() -> str:
 def sanitize_filename(name: str, max_bytes: int = MAX_FILENAME_BYTES) -> str:
     """Turn an arbitrary title into a safe, portable filename stem.
 
-    Currency (``Sc``) and math (``Sm``) symbols such as ``$``, ``+`` and ``=``
-    are deliberately kept so titles stay readable; emoji and control characters
-    are not.
-
-    Returns:
-        A non-empty stem with no extension; ``"untitled"`` when nothing of the
-        input survives.
+    Currency (``Sc``) and math (``Sm``) symbols such as ``$``, ``+`` and ``=`` are
+    deliberately kept so titles stay readable; emoji and control characters are
+    not. Falls back to ``"untitled"`` when nothing of the input survives.
     """
     if not name:
         return "untitled"
@@ -157,13 +153,7 @@ def sanitize_filename(name: str, max_bytes: int = MAX_FILENAME_BYTES) -> str:
 
 
 def ensure_output_dir(path: Union[str, os.PathLike]) -> Path:
-    """Create the output directory if needed and return its resolved path.
-
-    Raises:
-        NotADirectoryError: ``path`` exists but is not a directory.
-        OSError: The directory could not be created (permissions, read-only
-            filesystem, ...).
-    """
+    """Create the output directory if needed and return its resolved path."""
     resolved = Path(path).expanduser().resolve()
     if resolved.exists() and not resolved.is_dir():
         raise NotADirectoryError(
@@ -328,14 +318,11 @@ def probe_existing_download(
     This is the skip-existing optimisation, and it saves downloading megabytes
     only to throw them away. An authoritative track already determines its own
     filename, so the check is a pure filesystem stat that touches no network at
-    all; anything else needs one cheap metadata-only extraction to learn the
-    title the file would have been named after.
+    all; anything else needs one cheap metadata-only extraction to learn the title
+    the file would have been named after.
 
-    Any failure is swallowed and reported as ``None`` so that the real download
-    attempt is the one that produces the authoritative error.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the batch loop can stop cleanly.
+    Any failure is swallowed and reported as ``None``, so the real download attempt
+    is the one that produces the authoritative error.
     """
     if _is_authoritative(track):
         target = _target_path_for_track(output_dir, track)
@@ -429,10 +416,9 @@ def rename_to_title(
 ) -> Tuple[Path, bool]:
     """Move a freshly downloaded file onto its final, title-based path.
 
-    Returns:
-        ``(final_path, reused_existing)``. ``reused_existing`` is ``True`` only
-        when ``target`` was already on disk and ``overwrite`` let it win, which
-        the caller reports as a skip.
+    Returns ``(final_path, reused_existing)``, where ``reused_existing`` is true
+    only when ``target`` was already on disk and ``overwrite`` let it win -- which
+    the caller reports as a skip.
     """
     if _same_file(downloaded, target):
         return target, False
@@ -567,13 +553,8 @@ def download_one(
     the resolved YouTube title does. On success the file goes through
     :func:`tag_mp3`. ``output_dir`` must already exist.
 
-    Returns:
-        A :class:`DownloadResult` with status ``"ok"``, ``"skipped"`` or
-        ``"failed"``. Per-track problems never raise -- every failure mode
-        becomes a ``"failed"`` result so the batch can carry on.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the batch loop can stop cleanly.
+    Per-track problems never raise: every failure mode becomes a failed result so
+    the batch can carry on. ``KeyboardInterrupt`` does propagate.
     """
     output_dir = Path(output_dir)
     query = track.query
@@ -633,12 +614,9 @@ def probe_chapters(
     """Return the video's chapter markers, or ``[]`` when it has none.
 
     Metadata-only, and best-effort: anything that goes wrong is reported as "no
-    chapters", so the caller falls back to a plain single-file download rather
-    than failing. Each chapter is yt-dlp's own dict:
+    chapters", so the caller falls back to a plain single-file download rather than
+    failing. Each chapter is yt-dlp's own dict,
     ``{"start_time": 0.0, "title": "...", "end_time": 198.0}``.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the batch loop can stop cleanly.
     """
     probe_opts = {
         "skip_download": True,
@@ -741,23 +719,17 @@ def download_chapters(
 ) -> List[DownloadResult]:
     """Download one chaptered video and split it into an MP3 per chapter.
 
-    For the "Full Album Stream" upload: one 32-minute video with chapter
-    markers, one MP3 per track out. Pieces land in ``output_dir`` as
-    ``NN - Title.mp3`` and are re-tagged individually, because yt-dlp copies the
-    parent video's ID3 tags onto every piece it cuts.
+    For the "Full Album Stream" upload: one 32-minute video with chapter markers,
+    one MP3 per track out. Pieces land in ``output_dir`` as ``NN - Title.mp3`` and
+    are re-tagged individually, because yt-dlp copies the parent video's ID3 tags
+    onto every piece it cuts.
 
-    The un-split parent is a duplicate of the pieces, so the whole download
-    happens in a temporary directory *inside* ``output_dir`` -- same filesystem,
-    so moving a piece out is a rename rather than a copy -- which is then
-    removed wholesale.
+    The un-split parent is a duplicate of the pieces, so the whole download happens
+    in a temporary directory *inside* ``output_dir`` -- same filesystem, so moving
+    a piece out is a rename rather than a copy -- which is then removed wholesale.
 
-    Returns:
-        One :class:`DownloadResult` per chapter, in chapter order, or a single
-        failed result when the download itself could not be made sense of. Like
-        :func:`download_one`, per-track problems never raise.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the batch loop can stop cleanly.
+    Returns one result per chapter in chapter order, or a single failed result when
+    the download could not be made sense of.
     """
     output_dir = Path(output_dir)
     query = track.query
@@ -868,11 +840,10 @@ def download_chapters(
 def write_failed_log(results: Sequence[DownloadResult], output_dir: Path) -> Optional[Path]:
     """Write ``skipped.txt``, one ``URL<TAB>reason`` line per failed result.
 
-    Returns:
-        Path of the written log, or ``None`` when there were no failures or the
-        log could not be written. An unwritable output directory is tolerated:
-        the report is a convenience, not a deliverable, and must not sink a
-        batch that has otherwise finished.
+    Returns the log's path, or ``None`` when there were no failures or it could not
+    be written. An unwritable output directory is tolerated: the report is a
+    convenience, not a deliverable, and must not sink a batch that has otherwise
+    finished.
     """
     failures = [r for r in results if r.status == STATUS_FAILED]
     if not failures:

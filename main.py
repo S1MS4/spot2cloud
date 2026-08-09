@@ -110,16 +110,6 @@ def _read_entries_file(path: str) -> List[str]:
     order-preserving de-duplication is applied. Anything else passes through
     verbatim: this CLI accepts playlist *names* and ``spotify:`` URIs, so a
     URL-only filter would silently discard valid input.
-
-    Args:
-        path: Path to the list file.
-
-    Returns:
-        The de-duplicated entries, in file order.
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-        OSError: If the file exists but cannot be read.
     """
     from pathlib import Path
 
@@ -149,16 +139,6 @@ def _collect_inputs(args: argparse.Namespace) -> List[str]:
 
     Positional arguments come first, then ``-p``, ``-n``, ``-u`` and finally the
     contents of ``-f``, each in the order the user gave them.
-
-    Args:
-        args: Parsed command-line arguments.
-
-    Returns:
-        The merged list of raw input strings.
-
-    Raises:
-        FileNotFoundError: If ``-f/--file`` points at a missing file.
-        OSError: If ``-f/--file`` cannot be read.
     """
     candidates: List[str] = []
     for group in (args.inputs, args.playlist, args.name, args.url):
@@ -184,13 +164,6 @@ def _job_folder(output_dir, name: str):
 
     Mirrors the pipeline's own naming so the summary can name the destination
     without depending on any track having succeeded.
-
-    Args:
-        output_dir: Root download directory.
-        name: Playlist name.
-
-    Returns:
-        The :class:`~pathlib.Path` of the playlist folder.
     """
     from pathlib import Path
 

@@ -57,12 +57,7 @@ _ASCII_SYMBOLS = {
 
 
 def _choose_symbols() -> Dict[str, str]:
-    """Pick the progress glyph set stderr can actually encode.
-
-    Returns:
-        :data:`_UNICODE_SYMBOLS` when ``sys.stderr``'s encoding round-trips every
-        glyph, otherwise :data:`_ASCII_SYMBOLS`.
-    """
+    """Pick the progress glyph set stderr can actually encode."""
     encoding = getattr(sys.stderr, "encoding", None) or "utf-8"
     try:
         "".join(_UNICODE_SYMBOLS.values()).encode(encoding)
@@ -82,16 +77,9 @@ ASCII_ONLY = SYMBOLS is _ASCII_SYMBOLS
 def encodable(text: str, stream: Any = None) -> str:
     """Return ``text`` with any character ``stream`` cannot encode replaced.
 
-    Playlist and track titles are arbitrary user data: a Japanese playlist name
-    on a cp1252 console would otherwise take the whole run down mid-progress --
+    Playlist and track titles are arbitrary user data: a Japanese playlist name on
+    a cp1252 console would otherwise take the whole run down mid-progress --
     including in the final summary, long after the downloads succeeded.
-
-    Args:
-        text: Line about to be written.
-        stream: Destination stream; defaults to ``sys.stderr``.
-
-    Returns:
-        The same string, or a lossy but printable version of it.
     """
     stream = sys.stderr if stream is None else stream
     encoding = getattr(stream, "encoding", None) or "utf-8"
@@ -103,33 +91,17 @@ def encodable(text: str, stream: Any = None) -> str:
 
 
 def print_out(text: str) -> None:
-    """Write one summary line to stdout, never crashing on the console encoding.
-
-    Args:
-        text: Line to print.
-    """
+    """Write one summary line to stdout, never crashing on the console encoding."""
     print(encodable(text, sys.stdout))
 
 
 def print_err(text: str) -> None:
-    """Write one diagnostic line to stderr, never crashing on the console encoding.
-
-    Args:
-        text: Line to print.
-    """
+    """Write one diagnostic line to stderr, never crashing on the console encoding."""
     print(encodable(text, sys.stderr), file=sys.stderr)
 
 
 def truncate(text: str, limit: int) -> str:
-    """Shorten ``text`` to ``limit`` characters, marking the cut with an ellipsis.
-
-    Args:
-        text: String to shorten.
-        limit: Maximum length of the result, including the marker.
-
-    Returns:
-        ``text`` unchanged when it already fits, else a truncated version.
-    """
+    """Shorten ``text`` to ``limit`` characters, marking the cut with an ellipsis."""
     text = (text or "").strip()
     if len(text) <= limit:
         return text
@@ -137,12 +109,7 @@ def truncate(text: str, limit: int) -> str:
 
 
 def configure_logging(verbose: bool) -> None:
-    """Route all log records to stderr so stdout carries only the summary.
-
-    Args:
-        verbose: When ``True``, log at DEBUG with logger names and levels shown;
-            otherwise log bare messages at INFO.
-    """
+    """Route all log records to stderr so stdout carries only the summary."""
     # Log records carry playlist and track names straight from the network, and
     # logging has no per-record encoding guard: on a cp1252 console an unlucky
     # title would print "--- Logging error ---" and a traceback. Degrading the

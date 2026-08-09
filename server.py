@@ -106,9 +106,6 @@ _USAGE = (
 )
 
 
-# --- background worker ----------------------------------------------------
-
-
 class _Stop(object):
     """Sentinel pushed onto the queue to end the consumer thread."""
 
@@ -118,11 +115,8 @@ class JobWorker(object):
 
     A single consumer is a deliberate choice, not a simplification:
     :func:`pipeline.run_job` is already internally concurrent, and two of them
-    running at once would fan out twice the connections and interleave writes
-    to the same folder's resume ledger. Queuing keeps the second click honest.
-
-    Attributes:
-        output_dir: Root download directory, resolved on first use.
+    running at once would fan out twice the connections and interleave writes to
+    the same folder's resume ledger. Queuing keeps the second click honest.
     """
 
     def __init__(
@@ -159,18 +153,12 @@ class JobWorker(object):
         logger.debug("server: worker thread started")
 
     def stop(self, timeout: float = 5.0) -> bool:
-        """Ask the consumer to finish and wait briefly for it.
+        """Ask the consumer to finish, waiting ``timeout`` seconds for it.
 
-        Queued-but-unstarted jobs are dropped: they were never promised, and
-        blocking Ctrl-C behind an hour of downloads is worse than losing a
-        queue the user can re-add in one click. A job already in flight is left
-        to finish or be killed with the process (the thread is a daemon).
-
-        Args:
-            timeout: Seconds to wait for the thread to exit.
-
-        Returns:
-            ``True`` if the thread exited within ``timeout``.
+        Queued-but-unstarted jobs are dropped: they were never promised, and blocking
+        Ctrl-C behind an hour of downloads is worse than losing a queue the user can
+        re-add in one click. A job already in flight is left to finish or be killed
+        with the process, since the thread is a daemon.
         """
         with self._lock:
             self._stopping = True
@@ -204,14 +192,9 @@ class JobWorker(object):
     # -- producer side ----------------------------------------------------
 
     def submit(self, uri: str) -> int:
-        """Queue one playlist reference.
+        """Queue one playlist reference, returning its position in line.
 
-        Args:
-            uri: The reference to hand to :func:`playlist_parser.resolve_input`.
-
-        Returns:
-            The number of jobs now outstanding, including the one in flight and
-            the one just added (i.e. this request's position in line).
+        That count includes the job in flight and the one just added.
         """
         self._queue.put(uri)
         depth = self.pending()
@@ -231,7 +214,6 @@ class JobWorker(object):
         return max(0, depth - 1) if stopping else depth
 
     def stats(self) -> Dict[str, int]:
-        """Return counters for ``/health``."""
         with self._lock:
             stats = {
                 "running": self._active,
@@ -244,7 +226,6 @@ class JobWorker(object):
     # -- consumer side ----------------------------------------------------
 
     def _consume(self) -> None:
-        """Pull jobs off the queue forever, one at a time."""
         while True:
             item = self._queue.get()
             try:
@@ -317,9 +298,6 @@ class JobWorker(object):
                 self._failed += failed
 
 
-# --- HTTP -----------------------------------------------------------------
-
-
 class PlaylistRequestHandler(BaseHTTPRequestHandler):
     """Tiny JSON API in front of a :class:`JobWorker`.
 
@@ -360,7 +338,6 @@ class PlaylistRequestHandler(BaseHTTPRequestHandler):
 
     @property
     def worker(self) -> Optional[JobWorker]:
-        """The :class:`JobWorker` owned by the server, if any."""
         return getattr(self.server, "worker", None)
 
     def _cors_headers(self) -> None:
@@ -383,17 +360,14 @@ class PlaylistRequestHandler(BaseHTTPRequestHandler):
             logger.debug("server: client disconnected before the response was sent")
 
     def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
-        """Serialise ``payload`` and send it as ``application/json``."""
         body = json.dumps(payload).encode("utf-8")
         self._send_bytes(status, "application/json; charset=utf-8", body)
 
     def _send_error_json(self, status: int, message: str) -> None:
-        """Send ``{"status": "error", "error": ...}`` with a helpful message."""
         logger.debug("server: %s %s -> %s (%s)", self.command, self.path, status, message)
         self._send_json(status, {"status": "error", "error": message})
 
     def _route(self) -> str:
-        """Return the request path with any query string and fragment removed."""
         return urlparse(self.path or "/").path or "/"
 
     # -- verbs ------------------------------------------------------------
@@ -479,10 +453,9 @@ class PlaylistRequestHandler(BaseHTTPRequestHandler):
     ) -> Tuple[Optional[Any], Optional[Tuple[int, str]]]:
         """Read and decode the request body.
 
-        Returns:
-            ``(payload, None)`` on success, or ``(None, (status, message))``
-            describing exactly what was wrong -- a client-side bug should read
-            as a sentence, not as a stack trace in the server log.
+        Returns ``(payload, None)`` on success, or ``(None, (status, message))``
+        describing exactly what was wrong -- a client-side bug should read as a
+        sentence, not as a stack trace in the server log.
         """
         content_type = (self.headers.get("Content-Type") or "").lower()
         if content_type and "json" not in content_type:
@@ -543,14 +516,9 @@ def _extract_uri(payload: Any) -> Tuple[Optional[str], Optional[str]]:
     """Pull and validate the playlist reference out of a decoded body.
 
     Accepts ``uri`` or ``url`` because the Spicetify API hands out both a
-    ``spotify:playlist:...`` URI and an ``open.spotify.com`` URL depending on
-    which menu the user clicked.
-
-    Args:
-        payload: Whatever :func:`json.loads` returned.
-
-    Returns:
-        ``(uri, None)`` when valid, else ``(None, message)``.
+    ``spotify:playlist:...`` URI and an ``open.spotify.com`` URL depending on which
+    menu the user clicked. Returns ``(uri, None)`` when valid, else
+    ``(None, message)``.
     """
     if not isinstance(payload, dict):
         return None, 'request body must be a JSON object, e.g. {"uri": "spotify:playlist:..."}'
@@ -575,15 +543,8 @@ def _extract_uri(payload: Any) -> Tuple[Optional[str], Optional[str]]:
     return uri, None
 
 
-# --- server ---------------------------------------------------------------
-
-
 class PlaylistServer(ThreadingHTTPServer):
-    """A :class:`~http.server.ThreadingHTTPServer` that owns a worker thread.
-
-    Attributes:
-        worker: The :class:`JobWorker` handlers submit to.
-    """
+    """A :class:`~http.server.ThreadingHTTPServer` that owns a worker thread."""
 
     daemon_threads = True
     #: Without this, a restart within the TIME_WAIT window fails to bind.
@@ -614,30 +575,14 @@ def build_server(
 ) -> PlaylistServer:
     """Bind the HTTP server and start its worker, without serving.
 
-    Split out of :func:`serve_forever` so tests (and any future GUI) can drive
-    a real socket on port ``0`` without entering a blocking accept loop.
+    Split out of :func:`serve_forever` so tests (and any future GUI) can drive a
+    real socket on port ``0`` without entering a blocking accept loop; read the
+    chosen port back from ``server.server_address[1]``. Call ``server_close()``
+    when done -- it stops the worker for you.
 
-    Args:
-        host: Must be a loopback address -- see the module docstring.
-        port: TCP port; ``0`` picks a free one (read it back from
-            ``server.server_address[1]``).
-        output_dir: Root download directory.
-        quality: MP3 bitrate in kbps.
-        workers: Thread count *inside* one job; jobs themselves stay serial.
-        overwrite: Re-download tracks already in the ledger.
-        verbose: Verbose yt-dlp output.
-        start_worker: Start the consumer thread immediately.
-
-    Returns:
-        A bound :class:`PlaylistServer`. Call ``server_close()`` when done; it
-        stops the worker for you.
-
-    Raises:
-        ValueError: If ``host`` is not loopback. This is a refusal, not a
-            fallback: the endpoint is unauthenticated, and quietly binding
-            something else would be a remote-triggerable downloader.
-        OSError: If the port cannot be bound (``errno.EADDRINUSE`` when
-            something is already listening).
+    A non-loopback ``host`` raises ``ValueError``. That is a refusal, not a
+    fallback: the endpoint is unauthenticated, and quietly binding something else
+    would turn it into a remote-triggerable downloader.
     """
     if host not in LOOPBACK_HOSTS:
         raise ValueError(
@@ -673,19 +618,9 @@ def serve_forever(
 ) -> int:
     """Run the local endpoint until Ctrl-C.
 
-    Args:
-        host: Loopback address to bind (see :func:`build_server`).
-        port: TCP port to listen on.
-        output_dir: Root download directory.
-        quality: MP3 bitrate in kbps.
-        workers: Thread count inside one job.
-        overwrite: Re-download tracks already in the ledger.
-        verbose: Verbose yt-dlp output.
-
-    Returns:
-        ``0`` on a clean shutdown (including Ctrl-C), ``1`` if the socket could
-        not be bound -- an address already in use is reported as one sentence
-        naming the port, not as a traceback.
+    Returns 0 on a clean shutdown, including Ctrl-C, and 1 if the socket could not
+    be bound -- an address already in use is reported as one sentence naming the
+    port, not as a traceback.
     """
     try:
         server = build_server(

@@ -14,12 +14,25 @@ own releases on their own profile.
 Both stages are resumable. A ledger in `<output-dir>/.download_history/` skips
 what is already on disk; one in `<output-dir>/.upload_history/` stops a re-run
 from putting a second copy of a set on the profile. Both are directories of
-one-JSON-file-per-album, siblings of the album folders, not files inside them. A download is cheap to repeat, an upload is not — that
-asymmetry is why the two ledgers exist separately.
+one-JSON-file-per-album, siblings of the album folders, not files inside them.
+A download is cheap to repeat, an upload is not — that asymmetry is why the two
+ledgers exist separately, and why only the upload one writes through on every
+record.
 
 Flat layout on purpose: one module per concern, no packages, no `src/`. Keep it
 that way. Do not add a framework, a config system, a plugin layer or a package
 directory unless the user asks for one.
+
+The `cli_*.py` files and `json_store.py` are flat siblings, not an accidental
+package. `main.py` owns argument dispatch and the download loop only:
+
+| Module | Owns |
+| --- | --- |
+| `cli_console.py` | stdout/stderr, glyph tables, exit codes, logging setup |
+| `cli_args.py` | every flag, plus the validation argparse cannot do |
+| `cli_progress.py` | the two tqdm reporters |
+| `cli_upload.py` | login, and publishing album folders |
+| `json_store.py` | the atomic JSON ledger both resume stores subclass |
 
 ## Commits
 
@@ -68,11 +81,12 @@ existing tone exactly:
 - **Never share yt-dlp state across threads.** Each worker builds its own opts
   dict via `downloader.build_ydl_opts`. A single dict reused by the pool is a
   data race.
-- **Ledgers never raise.** `history.py` and `upload_ledger.py` log I/O and JSON
-  errors and carry on. Losing a ledger costs a redundant download or a
-  duplicate set; raising throws away work that already succeeded. Writes are
-  atomic — temp file in the same directory, `fsync`, `os.replace` — and every
-  mutation is under the module lock.
+- **Ledgers never raise.** `json_store.JsonStore`, which `history.py` and
+  `upload_ledger.py` both subclass, logs I/O and JSON errors and carries on.
+  Losing a ledger costs a redundant download or a duplicate set; raising throws
+  away work that already succeeded. Writes are atomic — temp file **in the
+  ledger directory**, `fsync`, `os.replace`, so the rename stays
+  same-directory — and every mutation is under the store's lock.
 - **`storage_state.json` is the login.** Anyone holding it is signed in as the
   user. Keep it gitignored, keep the 0600 chmod in `browser_engine.login`, and
   never print, copy or upload its contents.
@@ -81,12 +95,21 @@ existing tone exactly:
   against the count the page states, re-fetches, and raises
   `ScrapeMismatchError`. Never relax that check into a warning.
 - **Playwright is imported lazily.** `uploader.py` must stay importable, and
-  its scanning half testable, with no browser installed.
+  its scanning half testable, with no browser installed. `browser_engine.py`
+  does import it at module scope, so `main.py` imports `cli_upload` inside the
+  branches that need it — never at module level. Check with
+  `python -c "import sys, main; print('playwright' in sys.modules)"`.
+- **Nothing may reach urllib3 before `main._silence_third_party_warnings()`.**
+  It runs at import time, before every other project import, and the `# noqa:
+  E402` on those imports is what marks it deliberate.
 - **Errors become results, not exceptions.** `resolver.classify_error` turns a
   yt-dlp failure into a short human sentence on a failed `DownloadResult`. One
   dead link never aborts a batch.
-- Comments explain why a thing is the way it is. Skip the ones that restate the
-  code.
+- **Comments explain why, never what.** Cover the comment and read the code: if
+  the code alone says the same thing, the comment goes. No banner rules, no
+  `Args:`/`Returns:` blocks restating an annotated signature, no docstring on a
+  dunder that says what the dunder is. Prefer a better name or an extracted
+  function over a comment.
 - **Example data only, everywhere.** No real Spotify or YouTube ids, no named
   commercial recordings, no personal library paths in code, tests or docs. Use
   `EXAMPLEALBUMID00000000`-style ids (Spotify ids must stay 22 base62

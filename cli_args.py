@@ -80,10 +80,9 @@ examples:
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser.
 
-    Returns:
-        A configured :class:`argparse.ArgumentParser`. ``--quality`` is accepted
-        as free text here and validated in :func:`main`, so the error message can
-        explain the allowed range instead of listing hundreds of choices.
+    ``--quality`` is accepted as free text here and validated by
+    :func:`parse_quality`, so the error message can explain the allowed range
+    instead of argparse listing hundreds of choices.
     """
     parser = argparse.ArgumentParser(
         prog="main.py",
@@ -292,17 +291,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def parse_quality(value: Any) -> str:
-    """Validate the ``--quality`` argument.
+    """Validate ``--quality`` and return it as a normalised bitrate string.
 
-    Args:
-        value: Raw ``--quality`` string.
-
-    Returns:
-        The bitrate as a normalised string, ready for ``pipeline.run_job``.
-
-    Raises:
-        ValueError: If it is not a whole number, or falls outside
-            :data:`QUALITY_MIN`..:data:`QUALITY_MAX`.
+    Raises ``ValueError`` if it is not a whole number within
+    :data:`QUALITY_MIN`..:data:`QUALITY_MAX`.
     """
     text = str(value).strip().lower()
     if text.endswith("k"):

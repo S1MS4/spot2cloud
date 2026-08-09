@@ -87,9 +87,6 @@ _TIME_AND_DURATION_RE = re.compile(r'data-testid="time-and-duration".{0,400}', r
 _SUFFIX = " | Spotify"
 
 
-# --- errors ---------------------------------------------------------------
-
-
 class ScrapeError(RuntimeError):
     """Any failure to read a Spotify page. Never raised for a partial result."""
 
@@ -100,9 +97,6 @@ class ScrapeMismatchError(ScrapeError):
 
 class ScrapeLayoutError(ScrapeError):
     """A selector matched nothing, so Spotify's markup has probably changed."""
-
-
-# --- fetching -------------------------------------------------------------
 
 
 def fetch_page(url: str) -> str:
@@ -126,9 +120,6 @@ def fetch_page(url: str) -> str:
             "Spotify page %s: could not be reached (%s)" % (url, exc.reason)
         ) from exc
     return raw.decode(charset, "replace")
-
-
-# --- parsing --------------------------------------------------------------
 
 
 def _meta(page: str, prop: str) -> Optional[str]:
@@ -221,30 +212,16 @@ def _rendered_header(page: str) -> Optional[str]:
     return html.unescape(re.sub(r"<[^>]*>", " ", match.group(0)))
 
 
-# --- entry point ----------------------------------------------------------
-
-
 def scrape_spotify(url_or_uri: str) -> PlaylistJob:
     """Build a :class:`~models.PlaylistJob` from a public Spotify page.
 
-    Args:
-        url_or_uri: Any form :func:`playlist_parser.parse_spotify_ref` accepts.
-            Locale prefixes and ``?si=`` share tokens are discarded, so the
-            canonical page is always the one fetched.
+    Accepts any form :func:`playlist_parser.parse_spotify_ref` does; locale
+    prefixes and ``?si=`` share tokens are discarded so the canonical page is
+    always the one fetched. The job comes back complete or not at all.
 
-    Returns:
-        A job whose ``source`` is :data:`~models.SOURCE_SPOTIFY`, complete or
-        not at all. Tracks carry no ``duration_ms``: the page states only the
-        collection total, never per-track times, so there is nothing to put
-        there and :func:`playlist_parser.pick_best_match` falls back to
-        matching on title alone.
-
-    Raises:
-        ValueError: If the reference is not a Spotify album or playlist.
-        ScrapeLayoutError: If a selector matched nothing.
-        ScrapeMismatchError: If every attempt returned fewer rows than the page
-            claims to hold.
-        ScrapeError: If the page could not be fetched.
+    Tracks carry no ``duration_ms``: the page states only the collection total,
+    never per-track times, so there is nothing to put there and
+    :func:`playlist_parser.pick_best_match` falls back to matching on title alone.
     """
     kind, ref_id = parse_spotify_ref(url_or_uri)
     url = "https://open.spotify.com/%s/%s" % (kind, ref_id)
@@ -294,8 +271,6 @@ def scrape_spotify(url_or_uri: str) -> PlaylistJob:
     is_album = kind == KIND_ALBUM
 
     logger.debug("scraped %d tracks from %s", len(rows), url)
-    # Per-row artists: a compilation credits each track differently, and the
-    # album artist would send the wrong name into the YouTube search.
     per_track = parse_track_artists(page)
 
     return PlaylistJob(

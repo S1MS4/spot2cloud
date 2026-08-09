@@ -62,8 +62,6 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-# --- input kinds ----------------------------------------------------------
-
 KIND_SPOTIFY = "spotify"
 KIND_YOUTUBE = "youtube"
 KIND_NAME = "name"
@@ -100,8 +98,6 @@ _YOUTUBE_URL_RE = re.compile(
 
 _LIST_PARAM_RE = re.compile(r"[?&]list=([A-Za-z0-9_-]+)")
 
-
-# --- wrong-match heuristics ----------------------------------------------
 
 #: Titles that almost never correspond to the studio recording the user asked
 #: for. Applied to *candidates* only, and skipped when the track's own title
@@ -143,9 +139,6 @@ _ALBUM_PAGE_LIMIT = 50
 _MAX_PAGES = 200
 
 
-# --- errors ---------------------------------------------------------------
-
-
 class SpotifyCredentialsError(RuntimeError):
     """Raised when the Spotify API credentials are absent from the environment.
 
@@ -172,21 +165,11 @@ class SpotifyCredentialsError(RuntimeError):
         super().__init__(message or self.MESSAGE)
 
 
-# --- input classification -------------------------------------------------
-
-
 def detect_input_kind(text: str) -> str:
-    """Classify a user-supplied playlist reference.
+    """Classify a user-supplied playlist reference as spotify, youtube or name.
 
-    Args:
-        text: Raw input, e.g. a Spotify URI, a YouTube URL or a playlist name.
-            Surrounding whitespace and wrapping angle brackets are tolerated.
-
-    Returns:
-        One of :data:`KIND_SPOTIFY` (``"spotify"``), :data:`KIND_YOUTUBE`
-        (``"youtube"``) or :data:`KIND_NAME` (``"name"``). Empty input is
-        classified as ``"name"`` so the caller reports "no tracks found"
-        rather than crashing.
+    Empty input is classified as a name, so the caller reports "no tracks found"
+    rather than crashing.
     """
     cleaned = _clean_input(text)
     if not cleaned:
@@ -202,22 +185,12 @@ def parse_spotify_ref(text: str) -> Tuple[str, str]:
     """Extract the collection kind and 22-character id from a Spotify link.
 
     Handles both playlists and albums, because they are different endpoints:
-    playlists page at 100 items and carry per-item album metadata, whereas
-    albums page at 50 and hold the album name and cover art on the container
-    object rather than on each track.
+    playlists page at 100 items and carry per-item album metadata, whereas albums
+    page at 50 and hold the album name and cover art on the container object
+    rather than on each track. A bare 22-char id is treated as a playlist.
 
-    Args:
-        text: ``spotify:playlist:<id>``, ``spotify:album:<id>``, or the
-            matching ``https://open.spotify.com/[intl-xx/]{playlist,album}/<id>
-            [?si=...]`` URL. A bare 22-char id is treated as a playlist.
-
-    Returns:
-        A ``(kind, id)`` pair where kind is :data:`KIND_PLAYLIST` or
-        :data:`KIND_ALBUM`.
-
-    Raises:
-        ValueError: If ``text`` is not a recognisable playlist or album
-            reference, with a message showing the accepted forms.
+    Raises ``ValueError`` for anything unrecognisable, with a message showing the
+    accepted forms.
     """
     cleaned = _clean_input(text)
     match = _SPOTIFY_URI_RE.match(cleaned) or _SPOTIFY_URL_RE.match(cleaned)
@@ -235,19 +208,10 @@ def parse_spotify_ref(text: str) -> Tuple[str, str]:
 
 
 def parse_spotify_playlist_id(text: str) -> str:
-    """Extract the 22-character id from a Spotify playlist reference.
+    """Extract the id from a Spotify playlist reference, rejecting albums.
 
     Kept for callers that specifically want a playlist. Prefer
     :func:`parse_spotify_ref`, which also accepts albums.
-
-    Args:
-        text: A Spotify playlist URI or URL, or a bare 22-char id.
-
-    Returns:
-        The playlist id.
-
-    Raises:
-        ValueError: If ``text`` is not a playlist reference.
     """
     kind, ref_id = parse_spotify_ref(text)
     if kind != KIND_PLAYLIST:
@@ -265,21 +229,12 @@ def _clean_input(text: str) -> str:
     return str(text).strip().strip("<>").strip()
 
 
-# --- search-query construction -------------------------------------------
-
-
 def build_search_query(title: str, artist: Optional[str]) -> str:
     """Build the ``ytsearchN:`` expression used to find a track on YouTube.
 
-    Args:
-        title: Track title.
-        artist: Primary artist, or ``None`` when unknown (the artist part of
-            the query is then omitted entirely).
-
-    Returns:
-        ``"ytsearch<SEARCH_CANDIDATES>:<artist> - <title> audio"``. The
-        trailing ``audio`` biases YouTube away from music videos, which are
-        often padded with intros and so fail the duration check.
+    The trailing ``audio`` biases YouTube away from music videos, which are often
+    padded with intros and so fail the duration check. With no artist, that half
+    of the query is omitted entirely.
     """
     clean_title = _sanitise_query_part(title)
     clean_artist = _sanitise_query_part(artist) if artist else ""
@@ -295,9 +250,6 @@ def _sanitise_query_part(value: Optional[str]) -> str:
     if not value:
         return ""
     return _WHITESPACE_RE.sub(" ", _QUERY_STRIP_RE.sub(" ", str(value))).strip()
-
-
-# --- candidate matching ---------------------------------------------------
 
 
 def _normalise(value: Optional[str]) -> str:
@@ -340,21 +292,14 @@ def pick_best_match(candidates: List[dict], track: Track) -> Optional[dict]:
     """Choose the YouTube search hit that is really ``track``, or nothing.
 
     This is the wrong-match guard. YouTube search for a song title returns
-    hour-long loops, sped-up edits, karaoke versions and reactions above the
-    real thing often enough that taking hit #1 blindly produces a folder full
-    of junk. Filters are applied in order, then survivors are ranked.
+    hour-long loops, sped-up edits, karaoke versions and reactions above the real
+    thing often enough that taking hit #1 blindly produces a folder full of junk.
+    Filters are applied in order, then survivors are ranked.
 
-    Args:
-        candidates: yt-dlp flat search entries, in search-result order. Each
-            is a dict with ``title``, ``duration`` (**seconds**), ``id`` and
-            ``url``; any of those may be missing.
-        track: The track being searched for. ``track.duration_ms`` is in
-            milliseconds; ``None`` disables the duration filter.
-
-    Returns:
-        The winning candidate dict (the very object from ``candidates``), or
-        ``None`` when every candidate was rejected -- the caller then records
-        "no acceptable match" rather than downloading something wrong.
+    Mind the units: a candidate's ``duration`` is in seconds, while
+    ``track.duration_ms`` is in milliseconds. ``None`` there disables the duration
+    filter. Returning ``None`` makes the caller record "no acceptable match"
+    rather than download something wrong.
     """
     if not candidates:
         return None
@@ -401,15 +346,11 @@ def pick_best_match(candidates: List[dict], track: Track) -> Optional[dict]:
         topic = 0 if is_topic_upload(candidate) else 1
         contains = 0 if (want_norm and want_norm in _normalise(cand_title)) else 1
 
-        # Nothing left to verify against: no duration (scraped Spotify metadata
-        # carries none), not an official Topic upload, and the candidate title
-        # does not even contain the track title. Ranking would still hand back
-        # its least-bad guess, which is how "SAFARI" once matched an unrelated
-        # song. Refusing is the correct answer -- a missing track is honest, a
-        # wrong one is not.
-        # Title mismatch with nothing to verify it against. Being an official
-        # Topic upload does NOT rescue this: Topic proves the upload is the
-        # label's, not that it is the right song -- a Topic track from an
+        # Title mismatch with nothing to verify it against: ranking would still
+        # hand back its least-bad guess, which is how one track once matched an
+        # unrelated song. A missing track is honest, a wrong one is not. Being
+        # an official Topic upload does NOT rescue it: Topic proves the upload
+        # is the label's, not that it is the right song -- a Topic track from an
         # unrelated album once won on that basis alone.
         if contains and delta == float("inf"):
             logger.debug(
@@ -429,21 +370,12 @@ def pick_best_match(candidates: List[dict], track: Track) -> Optional[dict]:
     return scored[0][4]
 
 
-# --- Spotify --------------------------------------------------------------
-
-
 def _spotify_client():
     """Build an authenticated spotipy client from the environment.
 
-    Returns:
-        A ``spotipy.Spotify`` instance using the client-credentials flow,
-        which is enough for public playlists and needs no user login.
-
-    Raises:
-        SpotifyCredentialsError: If either credential env var is missing or
-            empty. Checked *before* the client is constructed so the user gets
-            the setup instructions instead of a spotipy stack trace.
-        RuntimeError: If spotipy itself is not installed.
+    Client-credentials flow, which is enough for public playlists and needs no
+    user login. The credentials are checked *before* the client is constructed, so
+    a missing one yields setup instructions rather than a spotipy stack trace.
     """
     client_id = (os.environ.get("SPOTIPY_CLIENT_ID") or "").strip()
     client_secret = (os.environ.get("SPOTIPY_CLIENT_SECRET") or "").strip()
@@ -586,20 +518,9 @@ def _spotify_album_job(album_id: str, text: str) -> PlaylistJob:
 
     Albums are a separate endpoint from playlists, and differ in two ways that
     matter here: ``album_tracks`` returns *simplified* track objects with no
-    nested ``album`` block, and it pages at 50 rather than 100. The album name
-    and cover art therefore come from the container object and are stamped onto
-    every track, so each MP3 still gets a correct ``TALB`` frame and cover.
-
-    Args:
-        album_id: The 22-character Spotify album id.
-        text: The original user input, used only for error messages.
-
-    Returns:
-        A job whose ``source`` is :data:`~models.SOURCE_SPOTIFY`.
-
-    Raises:
-        SpotifyCredentialsError: If API credentials are missing.
-        RuntimeError: If the API call fails.
+    nested ``album`` block, and it pages at 50 rather than 100. The album name and
+    cover art therefore come from the container object and are stamped onto every
+    track, so each MP3 still gets a correct ``TALB`` frame and cover.
     """
     client = _spotify_client()
 
@@ -691,18 +612,8 @@ def _spotify_album_job(album_id: str, text: str) -> PlaylistJob:
 def _spotify_job(text: str) -> PlaylistJob:
     """Resolve a Spotify playlist reference into a :class:`~models.PlaylistJob`.
 
-    Args:
-        text: The Spotify URI or URL the user supplied.
-
-    Returns:
-        A job whose ``source`` is :data:`~models.SOURCE_SPOTIFY` and whose
-        tracks each carry a ``ytsearchN:`` query plus full metadata.
-
-    Raises:
-        ValueError: If the reference is not a playlist.
-        SpotifyCredentialsError: If the API credentials are missing.
-        RuntimeError: If the API call fails (message names the playlist id and
-            the HTTP status).
+    Each track carries a ``ytsearchN:`` query plus full metadata. A ``RuntimeError``
+    from a failed API call names the playlist id and the HTTP status.
     """
     playlist_id = parse_spotify_playlist_id(text)
     client = _spotify_client()
@@ -772,9 +683,6 @@ def _spotify_job(text: str) -> PlaylistJob:
     )
 
 
-# --- YouTube --------------------------------------------------------------
-
-
 def _spotify_any_job(text: str) -> PlaylistJob:
     """Resolve a Spotify album or playlist, by scraping first, API second.
 
@@ -821,13 +729,8 @@ def _fallback_name_from_url(url: str) -> str:
 def _youtube_job(text: str) -> PlaylistJob:
     """Expand a YouTube URL via :func:`resolver.expand_playlist`.
 
-    Args:
-        text: A YouTube video, playlist, channel or mix URL.
-
-    Returns:
-        A job with ``source`` :data:`~models.SOURCE_YOUTUBE`. Per-entry
-        failures reported by the resolver are logged, not raised: a playlist
-        with three private videos should still download the rest.
+    Per-entry failures the resolver reports are logged, not raised: a playlist
+    with three private videos should still download the rest.
     """
     from resolver import expand_playlist
 
@@ -841,8 +744,6 @@ def _youtube_job(text: str) -> PlaylistJob:
         name=name, tracks=list(tracks or []), source=SOURCE_YOUTUBE, origin=text
     )
 
-
-# --- name search ----------------------------------------------------------
 
 #: YouTube's "playlist" search filter (``sp`` parameter, EgIQAw%3D%3D). Using
 #: the results page rather than ``ytsearchN:`` is what makes a *playlist*
@@ -909,14 +810,9 @@ def _entry_playlist_url(entry: Dict[str, Any]) -> Optional[str]:
 def _name_job(text: str) -> PlaylistJob:
     """Find a YouTube playlist matching a free-text name and expand it.
 
-    Args:
-        text: The playlist name the user typed.
-
-    Returns:
-        A job with ``source`` :data:`~models.SOURCE_SEARCH`. When no playlist
-        can be found the job is returned with the requested name and an
-        **empty** track list -- the CLI reports "no tracks found" cleanly
-        instead of the user seeing a traceback for a typo.
+    When no playlist can be found the job comes back with the requested name and
+    an **empty** track list, so the CLI reports "no tracks found" cleanly instead
+    of showing the user a traceback for a typo.
     """
     name = _clean_input(text)
     try:
@@ -961,27 +857,15 @@ def _name_job(text: str) -> PlaylistJob:
                        source=SOURCE_SEARCH, origin=text)
 
 
-# --- entry point ----------------------------------------------------------
-
-
 def resolve_input(text: str) -> PlaylistJob:
     """Turn any supported user input into a :class:`~models.PlaylistJob`.
 
-    Args:
-        text: A Spotify playlist URI/URL, a YouTube URL, or a playlist name.
+    ``origin`` is always set to ``text``. A name that matches nothing yields a job
+    with an empty track list rather than an exception.
 
-    Returns:
-        The resolved job, with ``origin`` always set to ``text``. A name that
-        matches nothing yields a job with an empty track list rather than an
-        exception.
-
-    Raises:
-        ValueError: For a malformed Spotify reference.
-        SpotifyCredentialsError: For a Spotify input that neither the API nor
-            the public-page scraper could resolve; its message is the real
-            reason, which may have nothing to do with credentials.
-        RuntimeError: If the Spotify API or the YouTube resolver fails
-            outright.
+    ``SpotifyCredentialsError`` here means neither the API nor the public-page
+    scraper could resolve a Spotify input; its message is the real reason, which
+    may have nothing to do with credentials.
     """
     kind = detect_input_kind(text)
     logger.debug("input %r classified as %s", text, kind)
@@ -1000,21 +884,14 @@ def match_track(track: Track) -> Tuple[Optional[Track], Optional[str]]:
 
     Spotify-sourced tracks arrive carrying a ``ytsearchN:`` query rather than a
     URL, because which YouTube upload corresponds to a Spotify track is a guess
-    that has to be made against real candidates. This runs that search and
-    applies :func:`pick_best_match`, so the duration and live/cover guards
-    actually gate what gets downloaded.
+    that has to be made against real candidates. This runs that search and applies
+    :func:`pick_best_match`, so the duration and live/cover guards actually gate
+    what gets downloaded.
 
     Tracks whose query is already a plain URL are returned untouched, so this is
-    safe to call unconditionally for every track in a job.
-
-    Args:
-        track: The track to resolve.
-
-    Returns:
-        A ``(track, reason)`` pair. On success ``track`` is a copy whose
-        ``query`` is the chosen video URL and ``reason`` is ``None``. When no
-        candidate is acceptable, ``track`` is ``None`` and ``reason`` explains
-        why, ready to be recorded as a failure.
+    safe to call unconditionally for every track in a job. Returns a
+    ``(track, reason)`` pair: on failure ``track`` is ``None`` and ``reason`` is
+    ready to be recorded.
     """
     query = (track.query or "").strip()
     if not query:

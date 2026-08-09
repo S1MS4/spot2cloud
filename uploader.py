@@ -9,8 +9,8 @@ Every entry point here defaults ``privacy`` to ``"private"`` on purpose, so a
 caller that forgets the argument publishes to nobody rather than to everybody.
 The ``--privacy`` CLI flag overrides it explicitly.
 
-The download half of this project produces ``Songs/<Album>/`` with numbered
-audio files, a ``cover.jpg`` and a history file. This module turns that folder
+The download half of this project produces ``Songs/<Album>/`` holding numbered
+audio files and a ``cover.jpg``, and nothing else. This module turns that folder
 back into a release: it reads the tags, transcodes anything SoundCloud might
 reject, and drives the upload page so every track goes up in one pass with the
 right title, artist, artwork and privacy.
@@ -719,9 +719,8 @@ def is_album_form(frame) -> bool:
 def fill_album_form(page, frame, album, artist=None, privacy="private") -> None:
     """Fill the set editor: album name, per-track titles, artist and privacy.
 
-    Raises:
-        UploadError: privacy could not be set to the requested value. Never let
-            that fall through -- the form defaults to Public.
+    A privacy setting that will not take raises ``UploadError``. Never let that
+    fall through -- the form defaults to Public.
     """
     frame.locator(ALBUM_SELECTORS["album_title"]).first.fill(album.title)
 

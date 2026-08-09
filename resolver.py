@@ -79,11 +79,8 @@ class YDLLogger:
 def _flat_opts() -> Dict[str, Any]:
     """Return a fresh copy of the flat-extraction options dict.
 
-    A fresh dict per ``YoutubeDL`` instance avoids handing the same mutable
-    mapping to several extractors, which mutate the options they are given.
-
-    Returns:
-        A new options dict including this module's yt-dlp logger adapter.
+    A fresh dict per ``YoutubeDL`` instance avoids handing the same mutable mapping
+    to several extractors, which mutate the options they are given.
     """
     opts = dict(_FLAT_OPTS)
     # Regenerated per call: dict() is a shallow copy, so the nested
@@ -96,16 +93,9 @@ def _flat_opts() -> Dict[str, Any]:
 def classify_error(exc: BaseException) -> str:
     """Map an exception raised by yt-dlp (or the filesystem) to a friendly reason.
 
-    The check order is deliberate. Region-blocking is tested *before* the
-    generic "unavailable" branch because YouTube's geo message begins with
-    "Video unavailable" and would otherwise be mis-reported as a removed video.
-
-    Args:
-        exc: The caught exception.
-
-    Returns:
-        A short, human-readable explanation suitable for the console and for
-        the skipped/failed report.
+    The check order is deliberate. Region-blocking is tested *before* the generic
+    "unavailable" branch because YouTube's geo message begins with "Video
+    unavailable" and would otherwise be mis-reported as a removed video.
     """
     message = str(exc) or exc.__class__.__name__
     lowered = message.lower()
@@ -176,14 +166,7 @@ def classify_error(exc: BaseException) -> str:
 
 
 def _entry_to_url(entry: Dict[str, Any]) -> Optional[str]:
-    """Best-effort extraction of a watchable URL from a flat playlist entry.
-
-    Args:
-        entry: One element of a yt-dlp playlist ``entries`` list.
-
-    Returns:
-        A URL string, or ``None`` if the entry carries nothing usable.
-    """
+    """Best-effort watchable URL from a flat playlist entry, or ``None``."""
     if not isinstance(entry, dict):
         return None
     for key in ("url", "webpage_url"):
@@ -199,31 +182,18 @@ def _entry_to_url(entry: Dict[str, Any]) -> Optional[str]:
 def expand_playlist(url: str) -> Tuple[Optional[str], List[Track], List[DownloadResult]]:
     """Expand one URL into its playlist name and the tracks it contains.
 
-    A single flat extraction supplies both the playlist title and every entry,
-    so a 200-item playlist costs one request rather than 201.
+    A single flat extraction supplies both the playlist title and every entry, so a
+    200-item playlist costs one request rather than 201.
 
-    The returned tracks carry only ``query`` and ``title``. Artist, album, cover
-    art and duration are deliberately left ``None``: YouTube-sourced tracks get
-    their tags from yt-dlp's own metadata post-processors at download time,
-    unlike Spotify-sourced tracks whose metadata is authoritative up front.
+    The returned tracks carry only ``query`` and ``title``. Artist, album, cover art
+    and duration are deliberately left ``None``: YouTube-sourced tracks get their
+    tags from yt-dlp's own metadata post-processors at download time, unlike
+    Spotify-sourced tracks whose metadata is authoritative up front.
 
-    Args:
-        url: A YouTube playlist URL, or any other URL yt-dlp understands.
-
-    Returns:
-        A ``(title, tracks, failures)`` tuple.
-
-        * ``title`` is the playlist name, or ``None`` for a non-playlist URL or
-          a playlist without a title.
-        * ``tracks`` are in playlist order; entry titles are used when the flat
-          extraction provides them, otherwise the video URL stands in.
-        * ``failures`` holds a single failed :class:`~models.DownloadResult`
-          when the URL could not be extracted at all, else it is empty.
-
-        A URL that is not a playlist yields ``(None, [Track(url, url)], [])``.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the caller can stop cleanly.
+    Returns ``(title, tracks, failures)``. ``title`` is ``None`` for a non-playlist
+    URL or a playlist without one; ``failures`` holds a single failed result when
+    the URL could not be extracted at all. A URL that is not a playlist yields
+    ``(None, [Track(url, url)], [])``.
     """
     tracks: List[Track] = []
     failures: List[DownloadResult] = []

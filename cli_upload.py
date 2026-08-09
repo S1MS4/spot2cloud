@@ -40,14 +40,8 @@ def _soundcloud(name: str):
     """Import an upload-stage module, or explain why it is unavailable.
 
     ``browser_engine`` and ``uploader`` pull in Playwright, which a user who only
-    ever downloads has no reason to install, so they are imported here rather
-    than at module scope.
-
-    Args:
-        name: ``"browser_engine"`` or ``"uploader"``.
-
-    Returns:
-        The imported module, or ``None`` after printing what went wrong.
+    ever downloads has no reason to install, so they are imported here rather than
+    at module scope. Returns ``None`` after printing what went wrong.
     """
     import importlib
 
@@ -77,13 +71,6 @@ def run_login(args: argparse.Namespace) -> int:
     SoundCloud's real page, the user types into that, and all this program ever
     touches is the session state it leaves behind. A credential we never hold is
     one we cannot log, leak, or leave in a shell history.
-
-    Args:
-        args: Parsed command-line arguments; only ``--state-file`` is used.
-
-    Returns:
-        ``0`` once the session file exists, ``1`` if the login did not complete,
-        ``130`` on Ctrl-C.
     """
     engine = _soundcloud("browser_engine")
     if engine is None:
@@ -328,15 +315,7 @@ def _unhandled(folders: Sequence[Any], outcomes: Sequence[_Outcome]) -> int:
 
 
 def upload_only(args: argparse.Namespace) -> int:
-    """Run the upload stage alone, for ``--dir``.
-
-    Args:
-        args: Parsed command-line arguments.
-
-    Returns:
-        ``0`` when the folder was uploaded or was already recorded, ``1`` on any
-        failure, ``130`` on Ctrl-C.
-    """
+    """Run the upload stage alone, for ``--dir``."""
     from pathlib import Path
 
     folder = Path(args.dir).expanduser()

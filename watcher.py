@@ -2,7 +2,8 @@
 
 The user keeps a file (``playlists.txt`` by default) open in an editor and
 pastes playlist references into it, one per line. This module polls that file
-and downloads anything it has not seen before.
+and downloads anything it has not seen before. See the README for the file
+format; :func:`parse_entries` is the authority on what counts as an entry.
 
 Why polling instead of ``watchdog``
 -----------------------------------
@@ -13,57 +14,32 @@ re-read only when ``st_mtime`` **or** ``st_size`` differs from the last look,
 so the steady state costs one syscall per tick. That keeps the whole project
 stdlib-only.
 
-File format
------------
-One entry per line. Blank lines and lines whose first non-space character is
-``#`` are ignored, so the file doubles as a scratchpad::
-
-    # weekly
-    spotify:playlist:EXAMPLEPLAYLISTID00000
-    https://www.youtube.com/playlist?list=PLxxxxxxxx
-
-    lo-fi beats to relax to
-
-Everything else is passed verbatim to :func:`playlist_parser.resolve_input`,
-so Spotify URIs/URLs, YouTube URLs and bare playlist names all work.
-
-The processed sidecar
----------------------
-Entries already handled are recorded in a JSON sidecar named
-``.<watch file>.processed`` next to the watch file (e.g.
-``.playlists.txt.processed``). It is keyed on the **raw stripped line text**,
-which is what the user actually controls: re-pasting the same URL is a no-op,
-while a genuinely different URL for the same playlist is a new entry. Without
-it, restarting the watcher would re-walk every line in the file and re-check
-hundreds of tracks against the network.
+The sidecar is keyed on the raw stripped line text, which is what the user
+actually controls: re-pasting the same URL is a no-op, while a genuinely
+different URL for the same playlist is a new entry.
 
 Failure policy: permanent vs. retryable
 ---------------------------------------
-One bad line must never kill the loop, but "mark everything as done" and
-"retry everything forever" are both wrong, so failures are split in two by
+One bad line must never kill the loop, but "mark everything as done" and "retry
+everything forever" are both wrong, so failures are split in two by
 :func:`is_retryable`:
 
 **Permanent** (recorded as ``failed``, never retried)
-    Problems with the *entry itself* -- a malformed Spotify reference
-    (``ValueError``), a name that matches no playlist, a bug in the resolver.
-    Re-running these produces the same failure and only burns API quota, so
-    they are written to the sidecar and skipped from then on. Fixing them means
-    editing the line, which changes the key and makes it new again.
+    Problems with the *entry itself* -- a malformed Spotify reference, a name
+    that matches no playlist, a bug in the resolver. Re-running these produces
+    the same failure and only burns API quota. Fixing them means editing the
+    line, which changes the key and makes it new again.
 
 **Retryable** (not recorded, retried on the next pass)
-    Problems with the *environment* -- :class:`SpotifyCredentialsError`
-    (the user has not exported their API keys yet) and network faults
-    (DNS, connection refused/reset, timeouts, HTTP 429/5xx). The user fixes
-    these outside the file, and would be rightly annoyed if exporting the
-    credentials still left the playlist stuck. Because a retryable failure
-    leaves nothing on disk, the cached stat signature is invalidated so the
-    next poll re-reads the file even though it has not changed.
+    Problems with the *environment* -- missing Spotify credentials, and network
+    faults. The user fixes these outside the file, and would be rightly annoyed
+    if exporting the credentials still left the playlist stuck. Because a
+    retryable failure leaves nothing on disk, the cached stat signature is
+    invalidated so the next poll re-reads the file even though it has not
+    changed.
 
-Nothing in here creates the watch file: a missing file is logged once and then
+Nothing here creates the watch file: a missing file is logged once and then
 waited on, because auto-creating it would hide a typo in ``--watch-file``.
-
-Logging goes to this module's logger only; configuring handlers is the CLI's
-job (never call ``basicConfig`` from a library module).
 """
 
 from __future__ import annotations
@@ -132,15 +108,12 @@ COMMENT_PREFIX = "#"
 
 
 class PassResult(NamedTuple):
-    """Outcome of a single sweep of the watch file.
+    """What one pass over the watch file did.
 
-    Attributes:
-        missing: The watch file did not exist (nothing else is meaningful).
-        entries: Count of usable (non-blank, non-comment) lines seen.
-        attempted: How many of those were new and therefore processed.
-        ok: Entries that resolved and downloaded without a job-level error.
-        failed: Entries that failed permanently and were marked processed.
-        retryable: Entries that failed transiently and were left unmarked.
+    ``missing`` means the file did not exist, in which case nothing else is
+    meaningful. ``failed`` counts entries that failed permanently and were marked
+    processed; ``retryable`` counts those left unmarked so the next pass tries
+    again.
     """
 
     missing: bool = False
@@ -151,39 +124,16 @@ class PassResult(NamedTuple):
     retryable: int = 0
 
 
-# --- sidecar --------------------------------------------------------------
-
-
 def sidecar_path(watch_file) -> Path:
-    """Return the path of the processed-entries sidecar for ``watch_file``.
-
-    Args:
-        watch_file: Path to the watch file (``~`` is expanded).
-
-    Returns:
-        ``<dir>/.<name>.processed`` as an absolute-ish :class:`~pathlib.Path`
-        alongside the watch file, so the state travels with it.
+    """``<dir>/.<name>.processed`` beside the watch file, so the state travels
+    with it.
     """
     path = Path(watch_file).expanduser()
     return path.parent / ("%s%s%s" % (SIDECAR_PREFIX, path.name, SIDECAR_SUFFIX))
 
 
 def load_processed(path) -> Dict[str, Dict[str, Any]]:
-    """Read the sidecar into a ``{entry line: record}`` mapping.
-
-    A missing sidecar is simply an empty history. A corrupt or truncated one
-    (interrupted write, hand-editing) is logged and treated as empty rather
-    than raising: losing the resume state costs a re-check, whereas crashing
-    the watcher on startup costs the user their download queue. The bad file is
-    left on disk untouched until the next successful save overwrites it, so it
-    can still be inspected.
-
-    Args:
-        path: Sidecar path.
-
-    Returns:
-        Mapping of raw entry text to its record dict. Always a fresh dict.
-    """
+    """Read the sidecar into a fresh mapping of entry text to record."""
     file_path = Path(path)
     try:
         with file_path.open("r", encoding="utf-8") as handle:
@@ -219,19 +169,9 @@ def load_processed(path) -> Dict[str, Dict[str, Any]]:
 
 
 def save_processed(path, processed: Dict[str, Dict[str, Any]]) -> bool:
-    """Write the sidecar atomically.
+    """Persist the sidecar, returning whether the write succeeded.
 
-    The write goes to a temporary file in the same directory and is then
-    :func:`os.replace`-d over the target, so a crash mid-write can never leave
-    a half-written JSON document that the next start would refuse to read.
-
-    Args:
-        path: Sidecar path.
-        processed: Mapping to persist.
-
-    Returns:
-        ``True`` on success, ``False`` if the write failed (logged, never
-        raised -- an unwritable state file must not stop downloads).
+    Never raises: an unwritable state file must not stop downloads.
     """
     file_path = Path(path)
     payload = {
@@ -257,20 +197,11 @@ def save_processed(path, processed: Dict[str, Dict[str, Any]]) -> bool:
         return False
 
 
-# --- watch file -----------------------------------------------------------
-
-
 def parse_entries(text: str) -> List[str]:
-    """Split watch-file text into playlist entries.
+    """Strip blanks, ``#`` comments and duplicates out of the watch file.
 
-    Args:
-        text: Whole file contents.
-
-    Returns:
-        Stripped lines in file order, with blanks, ``#`` comments and
-        duplicates removed. De-duplication matters because the sidecar is keyed
-        on the line text: two identical lines are one entry, not a repeat
-        download.
+    De-duplication matters because the sidecar is keyed on the line text: two
+    identical lines are one entry, not a repeat download.
     """
     entries: List[str] = []
     seen = set()
@@ -313,8 +244,6 @@ def _read_watch_file(path: Path) -> Optional[str]:
         logger.warning("watcher: cannot read %s: %s", path, exc)
         return None
 
-
-# --- failure classification ----------------------------------------------
 
 #: Exception types that mean "the environment is wrong, not the line".
 #:
@@ -370,20 +299,11 @@ _CAUSE_DEPTH = 10
 
 
 def is_retryable(exc: BaseException) -> bool:
-    """Report whether ``exc`` should leave its entry unmarked for a retry.
+    """Whether ``exc`` is worth trying again on the next pass.
 
-    The exception and its ``__cause__``/``__context__`` chain are inspected, so
-    a network fault wrapped in a ``RuntimeError`` by an upper layer is still
-    recognised.
-
-    Args:
-        exc: The exception raised while processing one entry.
-
-    Returns:
-        ``True`` for credential and network problems -- environmental faults
-        the user fixes outside the watch file, which must therefore be tried
-        again. ``False`` for everything else, which is recorded as a permanent
-        failure so the loop stops re-attempting it.
+    True for credential and network problems -- environmental faults the user
+    fixes outside the watch file. False for everything else, which is recorded as
+    a permanent failure so the loop stops re-attempting it.
     """
     current: Optional[BaseException] = exc
     for _ in range(_CAUSE_DEPTH):
@@ -399,9 +319,6 @@ def is_retryable(exc: BaseException) -> bool:
     return False
 
 
-# --- one entry ------------------------------------------------------------
-
-
 def _process_entry(
     entry: str,
     output_dir,
@@ -410,20 +327,11 @@ def _process_entry(
     overwrite: bool,
     verbose: bool,
 ) -> Tuple[bool, Optional[Dict[str, Any]]]:
-    """Resolve and download a single watch-file entry.
+    """Resolve and download one watch-file entry.
 
-    Args:
-        entry: The raw stripped line.
-        output_dir: Root download directory.
-        quality: MP3 bitrate in kbps.
-        workers: Thread count for the pipeline.
-        overwrite: Re-download tracks already in the ledger.
-        verbose: Verbose yt-dlp output.
-
-    Returns:
-        A ``(succeeded, record)`` pair. ``record`` is the sidecar entry to
-        store, or ``None`` when the failure was retryable and the entry must
-        stay pending. This function never raises for a job-level problem.
+    Returns a ``(succeeded, record)`` pair, where ``record`` is the sidecar entry
+    to store or ``None`` when the failure was retryable and the entry must stay
+    pending. Never raises for a job-level problem.
     """
     # Imported here, not at module scope: ``downloader`` hard-imports yt-dlp,
     # and the watcher must stay importable (and testable) without it.
@@ -496,9 +404,6 @@ def _process_entry(
     }
 
 
-# --- one pass -------------------------------------------------------------
-
-
 def run_once(
     watch_file=WATCH_FILE_NAME,
     output_dir=DEFAULT_OUTPUT_DIR,
@@ -507,25 +412,11 @@ def run_once(
     overwrite: bool = False,
     verbose: bool = False,
 ) -> PassResult:
-    """Read the watch file once and process every entry not already recorded.
+    """One pass over the watch file, minus the sleeping.
 
-    This is the whole of the watcher's behaviour minus the sleeping, which is
-    what makes it testable without threads or timing games.
-
-    Args:
-        watch_file: Path to the playlist list.
-        output_dir: Root download directory.
-        quality: MP3 bitrate in kbps.
-        workers: Thread count per playlist.
-        overwrite: Re-download tracks already in the ledger.
-        verbose: Verbose yt-dlp output.
-
-    Returns:
-        A :class:`PassResult` describing what happened. ``missing`` is ``True``
-        when the file does not exist; nothing is created in that case.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the caller can shut down cleanly.
+    That is what makes it testable. Nothing is created when the watch file does
+    not exist; the pass just reports ``missing``. ``KeyboardInterrupt`` propagates
+    so the caller can shut down cleanly.
     """
     path = Path(watch_file).expanduser()
     text = _read_watch_file(path)
@@ -577,9 +468,6 @@ def run_once(
     )
 
 
-# --- the loop -------------------------------------------------------------
-
-
 def watch_loop(
     watch_file=WATCH_FILE_NAME,
     output_dir=DEFAULT_OUTPUT_DIR,
@@ -592,28 +480,9 @@ def watch_loop(
 ) -> int:
     """Poll ``watch_file`` and download every new entry until interrupted.
 
-    The file is ``stat()``-ed each tick and only re-read when ``st_mtime`` or
-    ``st_size`` changed, so an idle watcher does no I/O beyond one syscall. Two
-    things deliberately override that cache: the very first pass (nothing is
-    known yet), and any pass that left retryable failures behind -- those must
-    be re-attempted once the user fixes their credentials or their network,
-    which does not touch the file.
-
-    Args:
-        watch_file: Path to the playlist list. Not created if missing.
-        output_dir: Root download directory.
-        interval: Seconds between polls, floored at :data:`MIN_INTERVAL`.
-        quality: MP3 bitrate in kbps.
-        workers: Thread count per playlist.
-        overwrite: Re-download tracks already in the ledger.
-        verbose: Verbose yt-dlp output.
-        once: Run a single pass and return instead of looping.
-
-    Returns:
-        ``0`` when nothing failed permanently (including a clean Ctrl-C), ``1``
-        if at least one entry failed permanently during this run. Retryable
-        failures do **not** set the exit code, because they have not been
-        given up on.
+    Returns 0 when nothing failed permanently, including after a clean Ctrl-C, and
+    1 if at least one entry did. Retryable failures deliberately do **not** set the
+    exit code, because they have not been given up on.
     """
     path = Path(watch_file).expanduser()
     try:

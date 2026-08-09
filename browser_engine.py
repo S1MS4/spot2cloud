@@ -346,7 +346,7 @@ def browser(
         _close_all(page, context, browser_obj, playwright)
 
 
-# --- importing a session from a real browser -------------------------------
+# Importing a session from a real browser.
 #
 # SoundCloud sits behind bot detection that flags Playwright's Chromium during
 # login, no matter how the UA is dressed up. Signing in with an ordinary
@@ -382,11 +382,9 @@ def import_cookies_from_browser(
 ) -> Path:
     """Lift a signed-in SoundCloud session out of a real browser.
 
-    Raises:
-        NotLoggedInError: The browser holds no SoundCloud auth cookie, i.e. you
-            are not signed in there.
-        RuntimeError: The cookie store could not be read at all -- on macOS this
-            is usually Full Disk Access, which the terminal needs for Safari.
+    A ``RuntimeError`` means the cookie store could not be read at all -- on macOS
+    that is usually Full Disk Access, which the terminal needs in order to read
+    Safari's.
     """
     from yt_dlp.cookies import extract_cookies_from_browser
 
@@ -444,7 +442,7 @@ def import_cookies_from_browser(
     return target
 
 
-# --- driving your own Chrome -----------------------------------------------
+# Driving your own Chrome.
 #
 # The most reliable way to look like a real browser is to be one. Rather than
 # dressing up a bundled Chromium, attach to the Chrome already running on this
@@ -470,9 +468,8 @@ DEFAULT_TIMEOUT_MS = 30_000
 def attached_browser(endpoint: str = CDP_ENDPOINT, block_assets: bool = False):
     """Yield a Page from an already-running Chrome over CDP.
 
-    Raises:
-        RuntimeError: Nothing is listening on the debugging port, with the
-            command needed to start Chrome correctly.
+    Raises ``RuntimeError`` naming the command needed to start Chrome correctly if
+    nothing is listening on the debugging port.
     """
     playwright = sync_playwright().start()
     browser_obj = None

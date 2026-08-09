@@ -32,12 +32,7 @@ class ProgressReporter:
     """
 
     def __init__(self, job: PlaylistJob, verbose: bool = False) -> None:
-        """Open a bar for ``job``.
-
-        Args:
-            job: The playlist about to run; supplies the total and the ``desc``.
-            verbose: When ``True``, print plain log lines and no bar at all.
-        """
+        """Open a bar for ``job``; ``verbose`` means plain log lines, no bar."""
         self._total = len(job.tracks)
         # DownloadResult only carries a title; the "Artist - Title" label lives on
         # the Track. Results arrive out of order, so map them back by query.
@@ -64,11 +59,7 @@ class ProgressReporter:
         )
 
     def _write(self, line: str) -> None:
-        """Emit one progress line without corrupting the bar.
-
-        Args:
-            line: Already-formatted line.
-        """
+        """Emit one progress line without corrupting the bar."""
         line = encodable(line)
         if self._bar is not None:
             # tqdm.write defaults to stdout, which is reserved for the summary.
@@ -77,25 +68,13 @@ class ProgressReporter:
             logger.info("%s", line)
 
     def _label(self, result: DownloadResult) -> str:
-        """Return the best human-readable name for a result.
-
-        Args:
-            result: The finished result.
-
-        Returns:
-            ``Artist - Title`` when the originating track is known, else the
-            resolved title, else the raw query.
+        """Best human-readable name for a result: ``Artist - Title`` when the
+        originating track is known, else the resolved title, else the raw query.
         """
         return self._labels.get(result.url) or result.title or result.url
 
     def __call__(self, result: DownloadResult, done: int, total: int) -> None:
-        """Report one finished track. Signature required by ``ProgressCallback``.
-
-        Args:
-            result: Outcome of the track.
-            done: How many tracks of this job have finished, 1-based.
-            total: Track count of this job.
-        """
+        """Report one finished track. Signature required by ``ProgressCallback``."""
         index = "[%d/%d]" % (done, total)
         if result.status == STATUS_OK:
             line = "%s %s %s" % (index, SYMBOLS["ok"], self._label(result))
@@ -136,12 +115,7 @@ class UploadReporter:
     """
 
     def __init__(self, total: int, verbose: bool = False) -> None:
-        """Open a bar for ``total`` album folders.
-
-        Args:
-            total: Number of folders about to be uploaded.
-            verbose: When ``True``, print plain log lines and no bar at all.
-        """
+        """Open a bar for ``total`` folders; ``verbose`` means no bar."""
         self._total = total
         self._bar = None
         if verbose or total == 0:
@@ -182,22 +156,12 @@ class UploadReporter:
         self._write(line)
 
     def begin(self, title: str) -> None:
-        """Name the set now going up, so a long upload is not silent.
-
-        Args:
-            title: Album title.
-        """
+        """Name the set now going up, so a long upload is not silent."""
         if self._bar is not None:
             self._bar.set_description(encodable(truncate(title, DESC_WIDTH)))
 
     def ok(self, index: int, title: str, detail: Optional[str] = None) -> None:
-        """Report a set that finished.
-
-        Args:
-            index: 1-based position in the run.
-            title: Album title.
-            detail: Set URL, or a note such as ``"dry run"``.
-        """
+        """Report a set that finished, with its URL or a note such as "dry run"."""
         suffix = " %s %s" % (SYMBOLS["dash"], detail) if detail else ""
         self._finish(
             index,
@@ -206,7 +170,6 @@ class UploadReporter:
         )
 
     def skipped(self, index: int, title: str, url: Optional[str] = None) -> None:
-        """Report a set the ledger says is already on SoundCloud."""
         self._finish(
             index,
             "%s %s (already uploaded: %s)"
@@ -214,7 +177,6 @@ class UploadReporter:
         )
 
     def failed(self, index: int, title: str, reason: str) -> None:
-        """Report a set that did not make it."""
         self._finish(
             index,
             "%s %s %s %s"
