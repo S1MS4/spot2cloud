@@ -169,15 +169,16 @@ class AtomicWriteTests(LedgerTestCase):
 
     def test_a_failed_replace_leaves_no_temp_file_and_no_exception(self):
         ledger = UploadLedger(self.folder)
-        with mock.patch("upload_ledger.os.replace", side_effect=OSError("nope")):
+        with mock.patch("json_store.os.replace", side_effect=OSError("nope")):
             ledger.record(set_key("A"))
-        leftovers = [p.name for p in self.folder.iterdir() if p.name.endswith(".tmp")]
+        ledger_dir = UploadLedger(self.folder).path.parent
+        leftovers = [p.name for p in ledger_dir.iterdir() if p.name.endswith(".tmp")]
         self.assertEqual(leftovers, [])
 
     def test_the_previous_ledger_survives_a_failed_write(self):
         ledger = UploadLedger(self.folder)
         ledger.record(set_key("A"), set_url="good")
-        with mock.patch("upload_ledger.os.replace", side_effect=OSError("nope")):
+        with mock.patch("json_store.os.replace", side_effect=OSError("nope")):
             ledger.record(set_key("B"), set_url="lost")
         payload = json.loads(self.ledger_path.read_text(encoding="utf-8"))
         self.assertEqual(list(payload["entries"]), ["set:A"])
@@ -197,8 +198,8 @@ class AtomicWriteTests(LedgerTestCase):
             order.append("replace")
             return real_replace(src, dst)
 
-        with mock.patch("upload_ledger.os.fsync", spy_fsync), mock.patch(
-            "upload_ledger.os.replace", spy_replace
+        with mock.patch("json_store.os.fsync", spy_fsync), mock.patch(
+            "json_store.os.replace", spy_replace
         ):
             UploadLedger(self.folder).record(set_key("A"))
         self.assertEqual(order, ["fsync", "replace"])
