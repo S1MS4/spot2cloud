@@ -28,6 +28,8 @@ __all__ = [
     "DURATION_TOLERANCE",
     "YOUTUBE_PLAYER_CLIENTS",
     "youtube_extractor_args",
+    "AUDIO_FORMATS",
+    "AUDIO_FORMAT_DEFAULT",
     "SERVER_HOST",
     "SERVER_PORT",
     "WATCH_FILE_NAME",
@@ -45,6 +47,11 @@ SOURCE_YOUTUBE = "youtube"
 SOURCE_SEARCH = "search"
 
 BITRATE_DEFAULT = "192"
+# opus and m4a are what YouTube actually serves, so asking for them lets
+# ffmpeg copy the stream instead of re-encoding: no generation loss, and the
+# bitrate setting is ignored because nothing is being encoded.
+AUDIO_FORMATS = ("mp3", "opus", "m4a", "flac", "wav")
+AUDIO_FORMAT_DEFAULT = "mp3"
 DEFAULT_OUTPUT_DIR = "Songs"
 SKIPPED_LOG_NAME = "skipped.txt"
 # Resume ledgers live beside the album folders, not inside them: an album

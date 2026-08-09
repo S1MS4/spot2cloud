@@ -2,8 +2,7 @@
 
 :func:`run_job` takes one :class:`~models.PlaylistJob`, works out its folder,
 consults the resume ledger, and fans the remaining tracks out over a
-:class:`~concurrent.futures.ThreadPoolExecutor`. :func:`run_jobs` chains several
-jobs sequentially for the watcher and the local server.
+:class:`~concurrent.futures.ThreadPoolExecutor`.
 
 Three invariants this module exists to hold:
 
@@ -45,7 +44,6 @@ __all__ = [
     "ProgressCallback",
     "clamp_workers",
     "run_job",
-    "run_jobs",
 ]
 
 logger = logging.getLogger(__name__)
@@ -366,65 +364,3 @@ def run_job(
         return collected
     finally:
         history.flush()
-
-
-def run_jobs(
-    jobs: Sequence[PlaylistJob],
-    output_dir,
-    quality: str = BITRATE_DEFAULT,
-    workers: int = MAX_WORKERS_DEFAULT,
-    overwrite: bool = False,
-    verbose: bool = False,
-    split_chapters: bool = False,
-    audio_format: str = "mp3",
-    on_progress: Optional[ProgressCallback] = None,
-) -> List[DownloadResult]:
-    """Run several jobs one after another and concatenate their results.
-
-    Jobs run sequentially (each is internally concurrent) so a batch of ten
-    playlists does not open ten pools' worth of connections at once. A job that
-    somehow raises is logged and skipped rather than aborting the batch.
-
-    Args:
-        jobs: Playlists to process, in order.
-        output_dir: Root download directory.
-        quality: MP3 bitrate in kbps.
-        workers: Desired thread count per job, clamped to ``1..MAX_WORKERS_LIMIT``.
-        overwrite: Ignore the ledger and re-download everything.
-        verbose: Let yt-dlp log verbosely.
-        split_chapters: Split chaptered videos into one MP3 per chapter.
-        on_progress: Optional ``callback(result, done, total)``. ``done`` and
-            ``total`` are per-job, so they restart at each playlist.
-
-    Returns:
-        Every job's results concatenated, each job's slice in its own track
-        order.
-
-    Raises:
-        Nothing. ``KeyboardInterrupt`` stops the batch and returns what has
-        completed so far.
-    """
-    collected: List[DownloadResult] = []
-    total_jobs = len(jobs)
-    for position, job in enumerate(jobs, start=1):
-        logger.info("pipeline: job %d/%d: %s", position, total_jobs, job.name)
-        try:
-            collected.extend(
-                run_job(
-                    job,
-                    output_dir,
-                    quality=quality,
-                    workers=workers,
-                    overwrite=overwrite,
-                    verbose=verbose,
-                    split_chapters=split_chapters,
-            audio_format=audio_format,
-                    on_progress=on_progress,
-                )
-            )
-        except KeyboardInterrupt:
-            logger.warning("pipeline: interrupted between jobs; stopping batch")
-            break
-        except Exception as exc:  # noqa: BLE001 - one bad playlist != dead batch
-            logger.error("pipeline: job '%s' failed outright: %s", job.name, exc, exc_info=True)
-    return collected

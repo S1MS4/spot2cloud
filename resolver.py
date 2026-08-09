@@ -4,8 +4,6 @@ This module owns everything that turns a user-supplied URL into concrete work
 items, plus the translation of yt-dlp's raw exceptions into short sentences a
 human can act on:
 
-* :func:`expand_urls` -- flatten playlist URLs into their individual video URLs,
-* :func:`playlist_title` -- best-effort lookup of a playlist's real name,
 * :func:`expand_playlist` -- one flat extraction yielding both the name and the
   :class:`~models.Track` list,
 * :func:`classify_error` -- exception -> friendly reason string.
@@ -22,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import GeoRestrictedError
@@ -31,8 +29,6 @@ from models import youtube_extractor_args, DownloadResult, Track
 
 __all__ = [
     "classify_error",
-    "expand_urls",
-    "playlist_title",
     "expand_playlist",
 ]
 
@@ -196,109 +192,6 @@ def _entry_to_url(entry: Dict[str, Any]) -> Optional[str]:
     if video_id:
         return "https://www.youtube.com/watch?v=%s" % video_id
     return None
-
-
-def expand_urls(urls: Sequence[str]) -> Tuple[List[str], List[DownloadResult]]:
-    """Resolve playlists into their individual video URLs.
-
-    A single flat-extraction ``YoutubeDL`` instance is reused for the whole
-    batch: ``extract_flat="in_playlist"`` costs one cheap request per playlist
-    rather than one per video. Non-playlist URLs pass through untouched.
-    Unresolvable URLs become failure results instead of raising, so one dead
-    link never aborts the batch.
-
-    Args:
-        urls: Input URLs, in the order the user supplied them.
-
-    Returns:
-        A ``(resolved_urls, failures)`` tuple. ``resolved_urls`` is
-        de-duplicated and order-preserving; ``failures`` holds one
-        ``DownloadResult`` with status ``"failed"`` per URL that could not be
-        resolved.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the caller can stop cleanly.
-    """
-    resolved: List[str] = []
-    failures: List[DownloadResult] = []
-    seen = set()
-
-    if not urls:
-        return resolved, failures
-
-    def _add(candidate: Optional[str]) -> None:
-        if not candidate or candidate in seen:
-            return
-        seen.add(candidate)
-        resolved.append(candidate)
-
-    with YoutubeDL(_flat_opts()) as ydl:
-        for url in urls:
-            try:
-                info = ydl.extract_info(url, download=False)
-                if not info:
-                    raise ValueError("no metadata returned")
-                if info.get("_type") == "playlist":
-                    entries = info.get("entries") or []
-                    count = 0
-                    for entry in entries:
-                        if entry is None:
-                            continue
-                        entry_url = _entry_to_url(entry)
-                        if entry_url:
-                            _add(entry_url)
-                            count += 1
-                    logger.info(
-                        "Playlist '%s' expanded to %d item(s)",
-                        info.get("title") or url,
-                        count,
-                    )
-                else:
-                    _add(url)
-            except KeyboardInterrupt:
-                raise
-            except Exception as exc:  # noqa: BLE001 - resolution must never raise
-                reason = classify_error(exc)
-                logger.warning("Could not resolve %s - %s", url, reason)
-                failures.append(DownloadResult.failed(url, reason))
-
-    return resolved, failures
-
-
-def playlist_title(url: str) -> Optional[str]:
-    """Look up the real name of a playlist URL.
-
-    Used to name the download folder after the playlist instead of falling back
-    to a generic label. One flat extraction, no download.
-
-    Best-effort by design: any failure (network, private playlist, malformed
-    URL) yields ``None`` rather than an exception, because a missing folder name
-    is never a reason to abort a job.
-
-    Args:
-        url: The URL to inspect. May be a playlist or a single video.
-
-    Returns:
-        The playlist title, or ``None`` when the URL is not a playlist, carries
-        no title, or could not be extracted.
-
-    Raises:
-        KeyboardInterrupt: Propagated so the caller can stop cleanly.
-    """
-    try:
-        with YoutubeDL(_flat_opts()) as ydl:
-            info = ydl.extract_info(url, download=False)
-        if not info:
-            return None
-        if info.get("_type") != "playlist":
-            return None
-        title = info.get("title")
-        return str(title) if title else None
-    except KeyboardInterrupt:
-        raise
-    except Exception as exc:  # noqa: BLE001 - naming must never break a job
-        logger.debug("Could not read playlist title for %s: %s", url, exc)
-        return None
 
 
 def expand_playlist(url: str) -> Tuple[Optional[str], List[Track], List[DownloadResult]]:

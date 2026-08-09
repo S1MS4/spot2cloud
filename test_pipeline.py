@@ -248,98 +248,6 @@ class _FakeYDL:
         return value
 
 
-class TestExpandUrls(unittest.TestCase):
-    """Playlist flattening, de-duplication and failure isolation."""
-
-    def test_flat_playlist_of_three_expands_in_order(self):
-        fake = _FakeYDL(
-            {
-                "PL1": _flat_playlist(
-                    "Trio",
-                    [
-                        {"url": "https://youtu.be/aaa"},
-                        {"url": "https://youtu.be/bbb"},
-                        {"url": "https://youtu.be/ccc"},
-                    ],
-                )
-            }
-        )
-        with mock.patch.object(resolver, "YoutubeDL", fake):
-            urls, failures = resolver.expand_urls(["PL1"])
-        self.assertEqual([], failures, "a healthy playlist must produce no failures")
-        self.assertEqual(
-            [
-                "https://youtu.be/aaa",
-                "https://youtu.be/bbb",
-                "https://youtu.be/ccc",
-            ],
-            urls,
-            "playlist order must be preserved",
-        )
-
-    def test_duplicates_across_two_inputs_are_deduped_order_preserved(self):
-        fake = _FakeYDL(
-            {
-                "PL1": _flat_playlist(
-                    "First",
-                    [{"url": "https://youtu.be/aaa"}, {"url": "https://youtu.be/bbb"}],
-                ),
-                "PL2": _flat_playlist(
-                    "Second",
-                    [{"url": "https://youtu.be/bbb"}, {"url": "https://youtu.be/ccc"}],
-                ),
-            }
-        )
-        with mock.patch.object(resolver, "YoutubeDL", fake):
-            urls, failures = resolver.expand_urls(["PL1", "PL2"])
-        self.assertEqual([], failures)
-        self.assertEqual(
-            [
-                "https://youtu.be/aaa",
-                "https://youtu.be/bbb",
-                "https://youtu.be/ccc",
-            ],
-            urls,
-            "bbb appears in both playlists and must be kept once, at its first position",
-        )
-
-    def test_entry_with_only_an_id_falls_back_to_watch_url(self):
-        fake = _FakeYDL({"PL1": _flat_playlist("IdOnly", [{"id": "EXAMPLEVID0"}])})
-        with mock.patch.object(resolver, "YoutubeDL", fake):
-            urls, failures = resolver.expand_urls(["PL1"])
-        self.assertEqual([], failures)
-        self.assertEqual(["https://www.youtube.com/watch?v=EXAMPLEVID0"], urls)
-
-    def test_non_playlist_url_passes_through(self):
-        fake = _FakeYDL({"https://youtu.be/solo": {"_type": "video", "title": "Solo"}})
-        with mock.patch.object(resolver, "YoutubeDL", fake):
-            urls, failures = resolver.expand_urls(["https://youtu.be/solo"])
-        self.assertEqual(["https://youtu.be/solo"], urls)
-        self.assertEqual([], failures)
-
-    def test_raising_extraction_becomes_a_failed_result_not_an_exception(self):
-        fake = _FakeYDL(
-            {
-                "PL1": _flat_playlist("Fine", [{"url": "https://youtu.be/aaa"}]),
-                "BAD": RuntimeError("Video unavailable"),
-            }
-        )
-        with mock.patch.object(resolver, "YoutubeDL", fake):
-            urls, failures = resolver.expand_urls(["PL1", "BAD"])
-        self.assertEqual(["https://youtu.be/aaa"], urls, "the good URL must still resolve")
-        self.assertEqual(1, len(failures), "the dead URL must produce exactly one failure")
-        self.assertIsInstance(failures[0], DownloadResult)
-        self.assertEqual(STATUS_FAILED, failures[0].status)
-        self.assertEqual("BAD", failures[0].url)
-        self.assertEqual("Video unavailable or removed", failures[0].reason)
-
-    def test_empty_input_short_circuits(self):
-        with mock.patch.object(resolver, "YoutubeDL") as ydl:
-            urls, failures = resolver.expand_urls([])
-        self.assertEqual(([], []), (urls, failures))
-        ydl.assert_not_called()
-
-
 class TestExpandPlaylist(unittest.TestCase):
     """``expand_playlist`` returns the name, the tracks and the failures."""
 
@@ -1198,24 +1106,6 @@ class TestHistoryStore(unittest.TestCase):
             for key_index in range(25):
                 key = "query:t%d-k%d" % (thread_index, key_index)
                 self.assertIn(key, payload["entries"], "%s went missing" % key)
-
-    def test_prune_missing_drops_entries_whose_file_is_gone(self):
-        kept = self.dir / "Kept.mp3"
-        gone = self.dir / "Gone.mp3"
-        kept.write_bytes(b"ID3")
-        gone.write_bytes(b"ID3")
-        store = history_mod.HistoryStore(self.dir)
-        store.add("query:kept", kept, "Kept")
-        store.add("query:gone", gone, "Gone")
-        gone.unlink()
-
-        dropped = store.prune_missing()
-        self.assertEqual(1, dropped, "exactly one file disappeared")
-        self.assertTrue(store.has("query:kept"))
-        self.assertFalse(
-            store.has("query:gone"),
-            "a deleted MP3 must be forgotten so the next run fetches it again",
-        )
 
     def test_remove_forgets_a_key(self):
         store = history_mod.HistoryStore(self.dir)

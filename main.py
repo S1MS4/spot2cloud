@@ -61,6 +61,7 @@ def _silence_third_party_warnings() -> None:
 _silence_third_party_warnings()
 
 from models import (  # noqa: E402 - deliberate: see _silence_third_party_warnings
+    AUDIO_FORMATS,
     BITRATE_DEFAULT,
     DEFAULT_OUTPUT_DIR,
     MAX_WORKERS_DEFAULT,
@@ -342,7 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--format",
         dest="audio_format",
-        choices=("mp3", "opus", "m4a", "flac", "wav"),
+        choices=AUDIO_FORMATS,
         default="mp3",
         help=(
             "audio format to save (default: %(default)s). opus and m4a are what "
@@ -515,11 +516,10 @@ def _parse_quality(value: Any) -> str:
 def _read_entries_file(path: str) -> List[str]:
     """Read one input per line from a text file.
 
-    ``downloader.read_urls_file`` is deliberately *not* used here: it drops any
-    line that is not an http(s) URL, which would silently discard the playlist
-    *names* and ``spotify:`` URIs this CLI accepts. The rest of its behaviour --
-    ignoring blanks and ``#`` comments, stripping wrapping quotes, de-duplicating
-    while preserving order -- is reproduced.
+    Blank lines and ``#`` comments are ignored, wrapping quotes are stripped and
+    order-preserving de-duplication is applied. Anything else passes through
+    verbatim: this CLI accepts playlist *names* and ``spotify:`` URIs, so a
+    URL-only filter would silently discard valid input.
 
     Args:
         path: Path to the list file.

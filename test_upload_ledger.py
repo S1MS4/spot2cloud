@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest import mock
 
 from upload_ledger import (
-    UPLOAD_HISTORY_DIR,
     UPLOAD_VERSION,
     UploadLedger,
     set_key,

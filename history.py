@@ -335,28 +335,6 @@ class HistoryStore:
             if self._entries.pop(key, None) is not None:
                 self._unflushed += 1
 
-    def prune_missing(self) -> int:
-        """Forget every entry whose file no longer exists on disk.
-
-        Lets a user delete an MP3 and have the next run fetch it again.
-
-        Returns:
-            How many entries were dropped.
-        """
-        with self._lock:
-            gone = []
-            for key, entry in self._entries.items():
-                raw = entry.get("path")
-                if not isinstance(raw, str) or not raw or not self._abs(raw).exists():
-                    gone.append(key)
-            for key in gone:
-                del self._entries[key]
-            if gone:
-                self._unflushed += len(gone)
-        if gone:
-            logger.info("history: pruned %d entr(y/ies) whose file is gone", len(gone))
-        return len(gone)
-
     def flush(self) -> None:
         """Write the ledger to disk atomically.
 

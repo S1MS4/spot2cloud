@@ -2,8 +2,7 @@
 
 Downloading, filename sanitisation, ID3 tagging and the ``skipped.txt`` report
 live here. Playlist/URL expansion and error classification live in
-``resolver.py``; concurrency lives in ``pipeline.py``. :func:`download_many` is
-the sequential path used by the plain-URL CLI mode.
+``resolver.py``; concurrency lives in ``pipeline.py``.
 
 Logging handlers are the caller's job (see ``main.py``); this module only emits
 through ``logging.getLogger(__name__)``.
@@ -21,7 +20,6 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
-from urllib.parse import urlparse
 
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError, GeoRestrictedError
@@ -30,15 +28,15 @@ from models import (
     youtube_extractor_args,
     Track,
     DownloadResult,
-    STATUS_OK,
-    STATUS_SKIPPED,
     STATUS_FAILED,
     BITRATE_DEFAULT,
+    AUDIO_FORMATS,
+    AUDIO_FORMAT_DEFAULT,
     DEFAULT_OUTPUT_DIR,
     MAX_FILENAME_BYTES,
     SKIPPED_LOG_NAME,
 )
-from resolver import classify_error, expand_urls
+from resolver import classify_error
 
 __all__ = [
     # Re-exported from models; callers already import these from here.
@@ -48,8 +46,6 @@ __all__ = [
     "check_ffmpeg",
     "sanitize_filename",
     "ensure_output_dir",
-    "is_probable_url",
-    "read_urls_file",
     "build_ydl_opts",
     "probe_existing_download",
     "rename_to_title",
@@ -57,7 +53,6 @@ __all__ = [
     "download_one",
     "probe_chapters",
     "download_chapters",
-    "download_many",
     "write_failed_log",
 ]
 
@@ -75,12 +70,6 @@ _WINDOWS_RESERVED_STEMS = frozenset(
 )
 
 _COVER_TIMEOUT = 10
-
-# opus and m4a are what YouTube actually serves, so asking for them lets
-# ffmpeg copy the stream instead of re-encoding: no generation loss, and the
-# bitrate setting is ignored because nothing is being encoded.
-AUDIO_FORMATS = ("mp3", "opus", "m4a", "flac", "wav")
-AUDIO_FORMAT_DEFAULT = "mp3"
 
 _FFMPEG_INSTALL_HINT = (
     "ffmpeg was not found on your PATH, but it is required to convert audio to "
@@ -206,59 +195,6 @@ def ensure_output_dir(path: Union[str, os.PathLike]) -> Path:
     return resolved
 
 
-def is_probable_url(text: str) -> bool:
-    """Report whether ``text`` parses as an http(s) URL with a host.
-
-    Used to drop junk lines out of batch files early, so anything else --
-    ``ftp://``, bare text, empty input -- is rejected.
-    """
-    if not text or not isinstance(text, str):
-        return False
-    try:
-        parsed = urlparse(text.strip())
-    except (ValueError, AttributeError):
-        return False
-    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-
-
-def read_urls_file(path: Union[str, os.PathLike]) -> List[str]:
-    """Read a newline-separated list of URLs, de-duplicated, in file order.
-
-    Blank lines, ``#`` comments and non-URL junk are dropped (the last with a
-    warning), and matching surrounding quotes are stripped.
-
-    Raises:
-        FileNotFoundError: No file at ``path``.
-        OSError: The file exists but cannot be read.
-    """
-    file_path = Path(path).expanduser()
-    if not file_path.is_file():
-        raise FileNotFoundError("URL file not found: %s" % file_path)
-
-    text = file_path.read_text(encoding="utf-8", errors="replace")
-
-    urls: List[str] = []
-    seen = set()
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if len(line) >= 2 and line[0] == line[-1] and line[0] in ("'", '"'):
-            line = line[1:-1].strip()
-        if not line:
-            continue
-        if not is_probable_url(line):
-            logger.warning("Skipping line %d of %s (not a URL): %s", lineno, file_path, line)
-            continue
-        if line in seen:
-            continue
-        seen.add(line)
-        urls.append(line)
-
-    logger.debug("Read %d URL(s) from %s", len(urls), file_path)
-    return urls
-
-
 def build_ydl_opts(
     output_dir: Path,
     quality: str = BITRATE_DEFAULT,
@@ -278,7 +214,7 @@ def build_ydl_opts(
     Fan-out is disabled: ``noplaylist`` holds a video+playlist URL to the single
     video, and ``playlistend`` holds a ``ytsearchN:`` query to its first hit,
     which would otherwise download all N candidates. Expanding playlists is
-    ``resolver.expand_urls``' job, not this one's.
+    ``resolver.expand_playlist``' job, not this one's.
 
     ``quality`` is the MP3 bitrate in kbps; empty or ``None`` falls back to
     :data:`BITRATE_DEFAULT`.
@@ -628,7 +564,7 @@ def _tagging_track(track: Track, info: Dict[str, Any]) -> Track:
     """Return the track whose metadata :func:`tag_mp3` should apply.
 
     An authoritative track is used as-is. For a plain YouTube URL the title is
-    *not* metadata -- ``download_many`` puts the URL itself there -- and yt-dlp's
+    *not* metadata -- the caller puts the URL itself there -- and yt-dlp's
     ``FFmpegMetadata`` pass already wrote a correct one, so the title is cleared
     and only genuinely-known fields are applied.
     """
@@ -947,59 +883,6 @@ def download_chapters(
         # Takes the un-split parent with it: half an hour of audio already
         # present, piece by piece, in output_dir.
         shutil.rmtree(str(tmp_dir), ignore_errors=True)
-
-
-def download_many(
-    urls: Sequence[str],
-    output_dir: Path,
-    overwrite: bool = False,
-    verbose: bool = False,
-    quality: str = BITRATE_DEFAULT,
-) -> List[DownloadResult]:
-    """Resolve, download and report on a batch of plain URLs, sequentially.
-
-    The simple CLI path for "here are some YouTube links": playlist URLs are
-    expanded via :func:`resolver.expand_urls`, each resolved URL becomes a bare
-    :class:`~models.Track`, and progress is logged per item. Concurrent,
-    playlist-aware downloading lives in ``pipeline.run_job``.
-
-    Returns:
-        Resolution failures followed by one :class:`DownloadResult` per URL
-        actually attempted. A ``KeyboardInterrupt`` stops the loop and returns
-        what was collected so far, so the caller can still write ``skipped.txt``.
-    """
-    output_dir = Path(output_dir)
-
-    try:
-        resolved, results = expand_urls(urls)
-    except KeyboardInterrupt:
-        logger.warning("Interrupted while resolving URLs.")
-        return []
-
-    tracks = [Track(query=url, title=url) for url in resolved]
-    total = len(tracks)
-    if total == 0:
-        return results
-
-    opts = build_ydl_opts(output_dir, quality=quality, verbose=verbose)
-
-    for index, track in enumerate(tracks, start=1):
-        try:
-            result = download_one(track, output_dir, opts, overwrite=overwrite)
-        except KeyboardInterrupt:
-            logger.warning("Interrupted - stopping after %d/%d item(s).", index - 1, total)
-            break
-
-        results.append(result)
-        label = result.title or track.query
-        if result.status == STATUS_OK:
-            logger.info("[%d/%d] OK   %s", index, total, label)
-        elif result.status == STATUS_SKIPPED:
-            logger.info("[%d/%d] SKIP %s - %s", index, total, label, result.reason)
-        else:
-            logger.warning("[%d/%d] FAIL %s - %s", index, total, track.query, result.reason)
-
-    return results
 
 
 def write_failed_log(results: Sequence[DownloadResult], output_dir: Path) -> Optional[Path]:

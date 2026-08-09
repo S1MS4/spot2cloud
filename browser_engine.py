@@ -43,7 +43,6 @@ __all__ = [
     "is_logged_in",
     "browser",
     "attached_browser",
-    "human_pause",
     "CDP_ENDPOINT",
     "DEFAULT_TIMEOUT_MS",
     "goto",
@@ -86,11 +85,6 @@ LOGGED_IN_SELECTORS = (
     "a[href='/upload']",
 )
 
-HEADER_SELECTOR = "#app, .header, header"
-SIGN_IN_SELECTOR = (
-    ".header__login, a[href*='/signin'], button:has-text('Sign in')"
-)
-
 # Short: this runs in a poll loop, and a missing marker is the common case.
 PROBE_TIMEOUT_MS = 1500
 NAV_TIMEOUT_MS = 45000
@@ -122,8 +116,6 @@ def user_agent_for(browser) -> str:
         version = ""
     return _UA_TEMPLATE % (version or _UA_FALLBACK_VERSION)
 
-
-USER_AGENT = _UA_TEMPLATE % _UA_FALLBACK_VERSION
 
 # Drops the one flag Playwright sets that any script can read back. It does not
 # make the browser undetectable; it just stops us announcing ourselves.
@@ -467,7 +459,6 @@ def import_cookies_from_browser(
 # in that window and the session persists.
 
 CDP_ENDPOINT = "http://127.0.0.1:9222"
-HUMAN_PAUSE_MS = (400, 1200)
 
 # An attached context starts with Playwright's 30s default anyway; setting it
 # explicitly means the uploader's own timeouts are the only ones that decide
@@ -514,15 +505,3 @@ def attached_browser(endpoint: str = CDP_ENDPOINT, block_assets: bool = False):
                 browser_obj.close()
         with contextlib.suppress(Exception):
             playwright.stop()
-
-
-def human_pause(page, low_ms: int = HUMAN_PAUSE_MS[0], high_ms: int = HUMAN_PAUSE_MS[1]) -> None:
-    """Wait a short, uneven beat between interactions.
-
-    The block notice cited "rapid taps or clicks": a script firing a dozen
-    actions inside one animation frame does not look like a person filling in a
-    form, and pacing costs nothing next to an upload that takes minutes anyway.
-    """
-    import random
-
-    page.wait_for_timeout(random.randint(low_ms, high_ms))
