@@ -19,20 +19,33 @@ A download is cheap to repeat, an upload is not — that asymmetry is why the tw
 ledgers exist separately, and why only the upload one writes through on every
 record.
 
-Flat layout on purpose: one module per concern, no packages, no `src/`. Keep it
-that way. Do not add a framework, a config system, a plugin layer or a package
-directory unless the user asks for one.
+One installable package under `src/`, grouped by concern. Each subpackage owns
+one stage of the work and nothing else:
 
-The `cli_*.py` files and `json_store.py` are flat siblings, not an accidental
-package. `main.py` owns argument dispatch and the download loop only:
-
-| Module | Owns |
+| Package | Owns |
 | --- | --- |
-| `cli_console.py` | stdout/stderr, glyph tables, exit codes, logging setup |
-| `cli_args.py` | every flag, plus the validation argparse cannot do |
-| `cli_progress.py` | the two tqdm reporters |
-| `cli_upload.py` | login, and publishing album folders |
-| `json_store.py` | the atomic JSON ledger both resume stores subclass |
+| `cli/` | `args` (every flag), `console` (stdout/stderr, exit codes, logging), `progress` (the two bars), `upload` (login and publishing), `app` (dispatch and the download loop) |
+| `download/` | `downloader` (yt-dlp, ffmpeg, tagging), `pipeline` (concurrency), `resolver` (URL expansion, error classification), `album_art` |
+| `sources/` | `playlist_parser` (input to tracks), `spotify_scrape` (public-page reader) |
+| `soundcloud/` | `browser_engine` (the session), `uploader` (the upload page) |
+| `store/` | `json_store` (the atomic ledger base), `history`, `upload_ledger` |
+| `services/` | `server` (`--serve`), `watcher` (`--watch`) |
+
+`models.py` sits at the package root because everything imports it.
+
+Do not add a framework, a config system or a plugin layer. New code goes in the
+subpackage that already owns its concern; a new subpackage needs a reason you
+can state in one line.
+
+## Entry points
+
+`sc-scrape` (the console script from `pyproject.toml`) and `python -m sc_scrape`
+both land in `sc_scrape.cli.app:main`. There is no `main.py` and no runnable
+file at the repo root; anything that tells the user to run one is stale.
+
+Install for development with `pip install -e .`. Tests run as
+`.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"` — the
+`-t .` matters, or discovery cannot import the package.
 
 ## Commits
 
@@ -96,12 +109,12 @@ existing tone exactly:
   `ScrapeMismatchError`. Never relax that check into a warning.
 - **Playwright is imported lazily.** `uploader.py` must stay importable, and
   its scanning half testable, with no browser installed. `browser_engine.py`
-  does import it at module scope, so `main.py` imports `cli_upload` inside the
-  branches that need it — never at module level. Check with
-  `python -c "import sys, main; print('playwright' in sys.modules)"`.
-- **Nothing may reach urllib3 before `main._silence_third_party_warnings()`.**
-  It runs at import time, before every other project import, and the `# noqa:
-  E402` on those imports is what marks it deliberate.
+  does import it at module scope, so `cli/app.py` imports `cli.upload` inside
+  the branches that need it — never at module level. Check with
+  `python -c "import sys, sc_scrape.cli.app; print('playwright' in sys.modules)"`.
+- **The urllib3 warning filter lives in `sc_scrape/__init__.py`.** Python runs
+  it before any submodule, whichever way the package is entered, so the
+  ordering is structural rather than a hand-placed call. Do not move it.
 - **Errors become results, not exceptions.** `resolver.classify_error` turns a
   yt-dlp failure into a short human sentence on a failed `DownloadResult`. One
   dead link never aborts a batch.
@@ -116,23 +129,44 @@ existing tone exactly:
   characters or `spotify_scrape._TRACK_ROW_RE` stops matching), `Example
   Album`, `Artist Name`, `Track One`.
 
+## Lint
+
+Ruff is configured in `pyproject.toml` and CI enforces both `ruff check` and
+`ruff format --check`. Run them before committing:
+
+```bash
+.venv/bin/ruff check . && .venv/bin/ruff format .
+```
+
+What is ignored is written down with its reason. `PLC0415` is off because the
+lazy imports are load-bearing; the `UP` rules that assume 3.10+ are off because
+this targets 3.9. If you need a new suppression, put the reason next to it.
+
 ## Tests
 
 ```bash
-.venv/bin/python -m unittest discover -p "test_*.py"
+.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"
 ```
 
 Standard-library `unittest` only, and offline: no network, no real downloads,
 no API calls, no browser. Keep it that way — add a fake or a fixture rather
-than a test dependency.
+than a test dependency. CI runs exactly this command on 3.9 through 3.13, plus
+one macOS and one Windows job.
 
-The README quotes a test count. It is 283 and the suite is green as of the
-last run. Re-run it before publishing any number, and do not claim a pass you
-have not seen.
+The README quotes a test count. It is 279 and the suite is green as of the last
+run. Re-run it before publishing any number, and do not claim a pass you have
+not seen.
 
 ## Housekeeping
 
-`Songs/`, `.upload/`, `.venv/`, `storage_state.json` and both history files are
-gitignored. ffmpeg and the Playwright browser binary are system dependencies
-that `requirements.txt` cannot install; if you touch install docs, the
+`Songs/`, `.upload/`, `.venv/`, `.claude/`, `storage_state.json`, both ledger
+directories and the build artefacts (`dist/`, `build/`, `*.egg-info/`,
+`.ruff_cache/`) are gitignored.
+
+ffmpeg and the Playwright browser binary are system dependencies that neither
+pip nor `pyproject.toml` can install; if you touch install docs, the
 `ffmpeg -version` check and `playwright install chromium` stay in.
+
+Version lives in `src/sc_scrape/__init__.py` and hatch reads it from there —
+`pyproject.toml` has no second copy to drift. Bump it with a `CHANGELOG.md`
+entry in the same commit.

@@ -109,15 +109,28 @@ source .venv/bin/activate
 .venv\Scripts\activate.bat
 ```
 
-Then:
+Then install the tool itself:
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 playwright install chromium
 ```
 
+That gives you the `sc-scrape` command. `-e` installs in place, so editing the
+source changes what runs; drop it if you just want it installed.
+
 `playwright install chromium` is a one-off post-install step. Skip it if you
 only ever download; the download half never imports Playwright.
+
+Check it worked:
+
+```bash
+sc-scrape --help
+```
+
+If you would rather not install anything, `python -m sc_scrape` works from the
+project root and takes exactly the same arguments as `sc-scrape`. Every example
+below uses `sc-scrape`.
 
 ## Sources it accepts
 
@@ -174,35 +187,35 @@ durations and do get the duration check.
 
 ```bash
 # a Spotify playlist link, straight from the "Share" menu
-python3 main.py "https://open.spotify.com/playlist/EXAMPLEPLAYLISTID00000"
+sc-scrape "https://open.spotify.com/playlist/EXAMPLEPLAYLISTID00000"
 
 # a playlist by name, plus a Spotify album URI, into a custom folder
-python3 main.py -n "example playlist name" -p spotify:album:EXAMPLEALBUMID00000000 -o ~/Music/rips
+sc-scrape -n "example playlist name" -p spotify:album:EXAMPLEALBUMID00000000 -o ~/Music/rips
 
 # a whole YouTube playlist at 320 kbps with 8 workers
-python3 main.py -p "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx" -q 320 -w 8
+sc-scrape -p "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx" -q 320 -w 8
 
 # a batch file (one entry per line, # comments allowed), re-fetching everything
-python3 main.py -f playlists.txt --overwrite -v
+sc-scrape -f playlists.txt --overwrite -v
 
 # a "Full Album Stream" video, cut into one tagged MP3 per chapter
-python3 main.py --split-chapters -u "https://www.youtube.com/watch?v=EXAMPLEVID1"
+sc-scrape --split-chapters -u "https://www.youtube.com/watch?v=EXAMPLEVID1"
 
 # keep watching playlists.txt, or serve the Spicetify extension endpoint
-python3 main.py --watch
-python3 main.py --serve
+sc-scrape --watch
+sc-scrape --serve
 
 # save a SoundCloud session once (a browser opens; you log in there)
-python3 main.py --login
+sc-scrape --login
 
 # download an album and publish it as a public SoundCloud set
-python3 main.py --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
+sc-scrape --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
 
 # upload a folder that is already on disk, keeping it private (-d implies --upload)
-python3 main.py -d "Songs/Example Album" --privacy private
+sc-scrape -d "Songs/Example Album" --privacy private
 
 # check every selector against the live page without uploading anything
-python3 main.py -d "Songs/Example Album" --dry-run --headed
+sc-scrape -d "Songs/Example Album" --dry-run --headed
 ```
 
 ### CLI flags
@@ -406,7 +419,8 @@ again the size, not one bit more music.
 ## Uploading to SoundCloud
 
 SoundCloud has no third-party upload API, so uploading means driving the real
-web app with Playwright. `browser_engine.py` owns the session, `uploader.py`
+web app with Playwright. `soundcloud/browser_engine.py` owns the session,
+`soundcloud/uploader.py`
 owns the page.
 
 **Scope: this stage is for recordings you own or control.** It publishes to
@@ -422,7 +436,7 @@ you are still checking a release.
 ### Logging in
 
 ```bash
-python3 main.py --login
+sc-scrape --login
 ```
 
 A browser window opens on SoundCloud's own sign-in page. You type your
@@ -439,8 +453,8 @@ delete it to log out.
 Then:
 
 ```bash
-python3 main.py --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
-python3 main.py -d "Songs/Example Album" --privacy private
+sc-scrape --upload -p "https://open.spotify.com/album/EXAMPLEALBUMID00000000"
+sc-scrape -d "Songs/Example Album" --privacy private
 ```
 
 The uploader reads the folder top level only (a `mp3-192 (transcoded)/`
@@ -471,7 +485,7 @@ last. When SoundCloud ships a redesign, that dict is the only thing to edit.
 To check them:
 
 ```bash
-python3 main.py -d "Songs/Example Album" --dry-run --headed
+sc-scrape -d "Songs/Example Album" --dry-run --headed
 ```
 
 This navigates to the upload page, tries every chain, reports which ones matched
@@ -479,7 +493,7 @@ and uploads nothing.
 
 **Caveat on reading that report:** `album_title_input` and `set_artwork_input`
 only exist once a set is actually being edited, so they legitimately read as
-missing on a bare upload page. `main.py` nonetheless treats *any* missing
+missing on a bare upload page. The CLI nonetheless treats *any* missing
 selector as a failed dry run and stops. So a dry run reporting those two as
 missing is expected, not a defect; what matters is which *other* keys are
 missing, and whether that set changes over time.
@@ -494,7 +508,7 @@ happens under automation at all:
 
 ```bash
 # log in to soundcloud.com in your ordinary Chrome first, then:
-.venv/bin/python -c "import browser_engine; browser_engine.import_cookies_from_browser('chrome')"
+.venv/bin/python -c "from sc_scrape.soundcloud import browser_engine; browser_engine.import_cookies_from_browser('chrome')"
 ```
 
 That writes `storage_state.json` (mode 600) and every `--upload` run afterwards
@@ -512,13 +526,21 @@ one. The profile persists cookies across runs, so you log in there once:
   --user-data-dir="$HOME/.chrome-automation"
 ```
 
-There is **no CLI flag for CDP attach yet** — `browser_engine.attached_browser`
-is a library function. Drive it directly:
+Then hand `--attach` to any upload run:
+
+```bash
+sc-scrape -d "Songs/Example Album" --upload --attach
+```
+
+`--attach-endpoint` points somewhere other than `http://127.0.0.1:9222` if you
+started Chrome on a different port. The same thing from Python, if you would
+rather drive it yourself:
 
 ```bash
 .venv/bin/python - <<'PY'
 from pathlib import Path
-import browser_engine, uploader
+
+from sc_scrape.soundcloud import browser_engine, uploader
 
 album = uploader.prepare_for_upload(uploader.scan_album(Path("Songs/Example Album")))
 with browser_engine.attached_browser() as page:
@@ -555,7 +577,7 @@ never finish.
 ## Watch folder
 
 ```bash
-python3 main.py --watch
+sc-scrape --watch
 ```
 
 Keep `playlists.txt` open in an editor and paste references into it. The file is
@@ -579,7 +601,7 @@ playlist's URI to the local server.
 1. Start the endpoint and leave it running:
 
    ```bash
-   python3 main.py --serve
+   sc-scrape --serve
    ```
 
    It binds `127.0.0.1:5001` and serves `/`, `/health` and `POST /playlist`.
@@ -591,12 +613,12 @@ playlist's URI to the local server.
 
    ```bash
    # macOS / Linux
-   cp download_playlist.js "$(spicetify path -e root)"/
+   cp extension/download_playlist.js "$(spicetify path -e root)"/
    ```
 
    ```bat
    :: Windows
-   for /f "delims=" %%p in ('spicetify path -e root') do copy download_playlist.js "%%p"
+   for /f "delims=" %%p in ('spicetify path -e root') do copy extension\download_playlist.js "%%p"
    ```
 
 3. Register and apply:
@@ -664,7 +686,7 @@ under a recognisable title: find it by hand and pass the URL with `-u`.
 
 **`NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+`** — harmless. The
 Python shipped with macOS is linked against LibreSSL and urllib3 warns at import
-time. `main.py` already suppresses it in normal runs; you will still see it in
+time. The package suppresses it in normal runs; you will still see it in
 raw `unittest` output. Downloads are unaffected. A python.org or Homebrew Python
 makes it go away.
 
@@ -683,13 +705,34 @@ expire. Escalating — retrying in a loop, cycling user agents, hammering the
 login page — makes it worse and risks the account, and the block notice itself
 cites "rapid taps or clicks". Waiting is the right response.
 
+## How the code is laid out
+
+One installable package, grouped by what each part does:
+
+```text
+src/sc_scrape/
+├── cli/          arguments, console output, progress bars, dispatch
+├── download/     yt-dlp, ffmpeg, tagging, concurrency
+├── sources/      turning a link or a name into a list of tracks
+├── soundcloud/   the browser session and the upload page
+├── store/        the two resume ledgers
+├── services/     --watch and --serve
+└── models.py     shared types and constants, dependency-free
+extension/        the Spicetify client
+tests/
+```
+
+`models.py` imports nothing but the standard library, so the tests run without
+yt-dlp, spotipy or Playwright installed. Playwright is imported lazily and only
+by `soundcloud/`, which is why a download-only install never needs a browser.
+
 ## Running tests
 
 ```bash
-.venv/bin/python -m unittest discover -p "test_*.py"
+.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"
 ```
 
-**283 tests**, about 1.3 seconds. The suite is offline: no network, no real
+**279 tests**, about 1.3 seconds. The suite is offline: no network, no real
 downloads, no API calls, no browser. It uses only the standard library's
 `unittest`, so there is nothing extra to install.
 
