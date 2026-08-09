@@ -46,7 +46,6 @@ sc-scrape = "sc_scrape.cli.app:main"
 Homepage = "https://github.com/S1MS4/sc-scrape"
 Source = "https://github.com/S1MS4/sc-scrape"
 Issues = "https://github.com/S1MS4/sc-scrape/issues"
-Changelog = "https://github.com/S1MS4/sc-scrape/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/sc_scrape/__init__.py"

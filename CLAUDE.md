@@ -6,7 +6,7 @@ Instructions for any agent working in this repo. Read this before touching
 ## What this project is
 
 A two-stage tool. Stage one turns a Spotify album/playlist, a YouTube
-playlist/video or a bare playlist name into `Songs/<Album>/` — tagged MP3s plus
+playlist/video or a bare playlist name into `Songs/<Album>/`: tagged MP3s plus
 a `cover.jpg`. Stage two, only with `--upload`, drives a real browser against
 soundcloud.com and publishes that folder as one set, so the user can put their
 own releases on their own profile.
@@ -15,7 +15,7 @@ Both stages are resumable. A ledger in `<output-dir>/.download_history/` skips
 what is already on disk; one in `<output-dir>/.upload_history/` stops a re-run
 from putting a second copy of a set on the profile. Both are directories of
 one-JSON-file-per-album, siblings of the album folders, not files inside them.
-A download is cheap to repeat, an upload is not — that asymmetry is why the two
+A download is cheap to repeat, an upload is not, and that asymmetry is why the two
 ledgers exist separately, and why only the upload one writes through on every
 record.
 
@@ -44,7 +44,7 @@ both land in `sc_scrape.cli.app:main`. There is no `main.py` and no runnable
 file at the repo root; anything that tells the user to run one is stale.
 
 Install for development with `pip install -e .`. Tests run as
-`.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"` — the
+`.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"`. The
 `-t .` matters, or discovery cannot import the package.
 
 ## Commits
@@ -64,7 +64,7 @@ address is not, so never substitute one. The identity is already written into
 No real name, personal address or personal library path goes into this repo, in
 any file, including this one.
 
-Never `git add -A` or `git add .` — `Songs/`, `storage_state.json`, `.claude/`
+Never `git add -A` or `git add .`. `Songs/`, `storage_state.json`, `.claude/`
 and both ledger directories are gitignored for good reasons and a stray `-f`
 would publish a live session. Stage the specific files you changed.
 
@@ -97,9 +97,9 @@ existing tone exactly:
 - **Ledgers never raise.** `json_store.JsonStore`, which `history.py` and
   `upload_ledger.py` both subclass, logs I/O and JSON errors and carries on.
   Losing a ledger costs a redundant download or a duplicate set; raising throws
-  away work that already succeeded. Writes are atomic — temp file **in the
+  away work that already succeeded. Writes are atomic (temp file **in the
   ledger directory**, `fsync`, `os.replace`, so the rename stays
-  same-directory — and every mutation is under the store's lock.
+  same-directory) and every mutation is under the store's lock.
 - **`storage_state.json` is the login.** Anyone holding it is signed in as the
   user. Keep it gitignored, keep the 0600 chmod in `browser_engine.login`, and
   never print, copy or upload its contents.
@@ -110,7 +110,7 @@ existing tone exactly:
 - **Playwright is imported lazily.** `uploader.py` must stay importable, and
   its scanning half testable, with no browser installed. `browser_engine.py`
   does import it at module scope, so `cli/app.py` imports `cli.upload` inside
-  the branches that need it — never at module level. Check with
+  the branches that need it, never at module level. Check with
   `python -c "import sys, sc_scrape.cli.app; print('playwright' in sys.modules)"`.
 - **The urllib3 warning filter lives in `sc_scrape/__init__.py`.** Python runs
   it before any submodule, whichever way the package is entered, so the
@@ -149,7 +149,7 @@ this targets 3.9. If you need a new suppression, put the reason next to it.
 ```
 
 Standard-library `unittest` only, and offline: no network, no real downloads,
-no API calls, no browser. Keep it that way — add a fake or a fixture rather
+no API calls, no browser. Keep it that way: add a fake or a fixture rather
 than a test dependency. CI runs exactly this command on 3.9 through 3.13, plus
 one macOS and one Windows job.
 
@@ -167,6 +167,5 @@ ffmpeg and the Playwright browser binary are system dependencies that neither
 pip nor `pyproject.toml` can install; if you touch install docs, the
 `ffmpeg -version` check and `playwright install chromium` stay in.
 
-Version lives in `src/sc_scrape/__init__.py` and hatch reads it from there —
-`pyproject.toml` has no second copy to drift. Bump it with a `CHANGELOG.md`
-entry in the same commit.
+Version lives in `src/sc_scrape/__init__.py` and hatch reads it from there, so
+`pyproject.toml` has no second copy to drift.
