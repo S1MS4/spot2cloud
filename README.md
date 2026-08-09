@@ -1,92 +1,120 @@
 # sc-scrape
 
-Archive a music library you own, and publish recordings you made.
+**Spotify lets you take nothing with you.** No file, no export, no copy of the
+library you spent years building. This gets your music onto your own disk, and
+your own recordings onto SoundCloud in one command. Early days, open source,
+fork it if you want to add to the project.
 
-Stage one turns a Spotify album or playlist, a YouTube playlist or video, or a
-bare playlist name into a folder of tagged audio with cover art. Stage two, only
-if you ask for it, drives a real browser against soundcloud.com and publishes
-that folder as one set. Both stages resume, so a re-run skips what is already
-done and never puts a second copy of an album on your profile.
+[![CI](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml/badge.svg)](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![yt-dlp](https://img.shields.io/badge/Audio-yt--dlp-FF0000?logo=youtube&logoColor=white)](#how-it-works)
+[![Playwright](https://img.shields.io/badge/Upload-Playwright-2EAD33?logo=playwright&logoColor=white)](#uploading-to-soundcloud)
+[![Ruff](https://img.shields.io/badge/Lint-Ruff-D7FF64?logo=ruff&logoColor=black)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/Tests-279%20offline-brightgreen)](#building-from-source)
+[![Release](https://img.shields.io/github/v/release/S1MS4/sc-scrape?include_prereleases&label=Release)](https://github.com/S1MS4/sc-scrape/releases/latest)
+[![Code size](https://img.shields.io/github/languages/code-size/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape)
+[![Last commit](https://img.shields.io/github/last-commit/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape/commits/main)
+[![Issues](https://img.shields.io/github/issues/S1MS4/sc-scrape)](https://github.com/S1MS4/sc-scrape/issues)
+[![Stars](https://img.shields.io/github/stars/S1MS4/sc-scrape?style=social)](https://github.com/S1MS4/sc-scrape/stargazers)
 
-## Install
+<p align="center">
+  [photo1]
+</p>
 
-Needs Python 3.9+ and ffmpeg on your PATH.
+Paste a link, get a folder of tagged audio with cover art. Re-run it and it
+skips what it already has.
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-playwright install chromium   # only needed for uploading
+## Quick start
+
+1. Install **ffmpeg**: `brew install ffmpeg`, `sudo apt install ffmpeg`, or
+   `winget install Gyan.FFmpeg`. Reopen your terminal afterwards.
+2. Install the tool:
+   ```bash
+   python3 -m venv .venv && source .venv/bin/activate
+   pip install -e .
+   ```
+3. Run it:
+   ```bash
+   sc-scrape "https://open.spotify.com/playlist/<id>"
+   ```
+
+Takes Spotify links and URIs, YouTube links, bare playlist names, or a text
+file of any of those. **No Spotify account or API key needed.**
+
+**Requirements:** Python 3.9+, ffmpeg. For uploading, also
+`playwright install chromium`.
+
+<p align="center">
+  [photo2]
+</p>
+
+## How it works
+
+```
+Spotify / YouTube  ──►  tracklist  ──►  yt-dlp + ffmpeg  ──►  Songs/Album/
+                                                                   │
+                                                              --upload
+                                                                   ▼
+                                                            SoundCloud set
 ```
 
-This gives you the `sc-scrape` command. `python -m sc_scrape` also works.
+Spotify supplies metadata only: titles, artists, cover art. Every byte of audio
+comes from YouTube, matched against that metadata by title, artist and duration.
+Nothing here circumvents DRM or an access control, and support for
+DRM-protected sources is out of scope. That is what separates a lawful tool
+from a circumvention device under DMCA 1201.
 
-## Usage
-
-```bash
-sc-scrape "https://open.spotify.com/playlist/<id>"
-sc-scrape -n "playlist name" -o ~/Music/rips
-sc-scrape -f playlists.txt -q 320 -w 8
-sc-scrape --split-chapters -u "https://www.youtube.com/watch?v=<id>"
-
-sc-scrape --login
-sc-scrape -d "Songs/My Album" --upload --privacy private
-```
-
-Accepts Spotify links and URIs, YouTube links, bare playlist names, or a text
-file of any of those. Spotify needs no credentials: the tracklist is read from
-the public page.
-
-Common flags: `-o` output dir, `-q` bitrate (64 to 320, default 192), `-w`
-workers (1 to 8), `--format` (mp3, opus, m4a, flac, wav), `--overwrite`,
-`--split-chapters`, `--upload`, `-d` folder to upload, `--privacy`, `--attach`,
-`--dry-run`, `--watch`, `--serve`, `-v`. Run `sc-scrape --help` for all of them.
-
-Exit codes: 0 fine, 1 something failed, 2 usage error, 130 interrupted.
-
-## Intended use
-
-For music you have the right to keep, and recordings you made or control. You
-are responsible for what you download and upload.
-
-Nothing here circumvents DRM or an access control. It reads pages and streams
-that Spotify and YouTube already serve to any browser. Support for
-DRM-protected sources is out of scope and will not be added, which is what
-separates a lawful tool from a circumvention device under DMCA 1201.
-
-Spotify supplies metadata only. Every byte of audio comes from YouTube.
-
-## Known limits
+Common flags: `-o` output dir, `-q` bitrate, `-w` workers, `--format`
+(mp3/opus/m4a/flac/wav), `--split-chapters`, `--watch`. Run `sc-scrape --help`
+for the rest.
 
 YouTube's ceiling for music is about 130 kbps opus, so `-q 320` adds no
 fidelity. Use `--format opus` to copy that stream instead of re-encoding it.
 
-SoundCloud sits behind bot detection, and it has blocked Playwright's bundled
-Chromium during login on this machine. The DOM selectors in
-`soundcloud/uploader.py` are therefore unvalidated against the real page.
-`--dry-run` reports which ones resolve. The reliable route is to start your own
-Chrome with `--remote-debugging-port=9222` and pass `--attach`.
+## Uploading to SoundCloud
 
-`--privacy` defaults to `public` on the command line, while the library
-functions default to `private`. Pass `--privacy private` while you are still
-checking a release.
-
-## Tests
+For recordings you own or control. `sc-scrape --login` opens SoundCloud's real
+sign-in page; **no password ever passes through this tool.**
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -t . -p "test_*.py"
+sc-scrape -d "Songs/My Album" --upload --privacy private
 ```
 
-279 tests, about 1.3 seconds, offline: no network, no downloads, no browser.
+**Still unproven.** SoundCloud's bot detection has blocked Playwright's bundled
+Chromium during login on my machine, so the page selectors are unvalidated
+against the live site. `--dry-run` reports which ones resolve. The reliable
+route is to be a real browser: start Chrome with `--remote-debugging-port=9222`
+and pass `--attach`. Note `--privacy` defaults to `public`.
+
+<p align="center">
+  [photo3]
+</p>
+
+## Building from source
+
+Requires Python 3.9+.
+
+```bash
+pip install -e ".[dev]"
+python -m unittest discover -s tests -t . -p "test_*.py"
+ruff check .
+```
+
+279 tests, about 1.3 seconds, fully offline: no network, no downloads, no
+browser.
 
 ## Disclaimer
 
 **I am not responsible for what you do with this script, or for your account
-being suspended, limited or deleted.**
-
-Automating a browser against soundcloud.com may breach SoundCloud's terms, and
-downloading from YouTube may breach YouTube's. That is between you and them. The
-software is provided as is, without warranty of any kind; see
-[LICENSE](LICENSE), sections 7 and 8.
+being suspended, limited or deleted.** Automating a browser against
+soundcloud.com may breach SoundCloud's terms, and downloading from YouTube may
+breach YouTube's. That is between you and them.
 
 If you do not hold the rights to something, do not download it and do not
 upload it.
+
+## License
+
+Apache 2.0, see [LICENSE](LICENSE).

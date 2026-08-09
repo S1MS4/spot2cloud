@@ -70,22 +70,30 @@ would publish a live session. Stage the specific files you changed.
 
 ## README voice rules
 
-`README.md` is the only doc, and it is the product. It is written for someone
-who has never opened a terminal but is not being talked down to. Match the
-existing tone exactly:
+`README.md` is the only doc, and it is the product. It is a GitHub landing
+page: badge block, a screenshot, then the shortest path to a working install.
+Written for someone who has never opened a terminal but is not being talked
+down to.
 
-- Plain declarative sentences that say what the thing does. Second person for
-  instructions ("close and reopen your terminal"), never "we".
+- **Keep it around 500 words.** It is a front page, not a manual. When
+  something needs more room, cut it and point at `sc-scrape --help`, which
+  cannot go stale.
+- Plain declarative sentences. Second person for instructions ("reopen your
+  terminal"), never "we". **No em dashes**; use a comma, a colon or a full stop.
 - Every claim is checkable. Numbers come from running something, not from
-  memory. Copy-pasteable commands, real example URLs.
-- State limitations in the open. The Cloudflare problem, the 128 kbps ceiling
-  and the duplicate-set risk are documented, not softened. Do not remove or
-  hedge a limitation section to make the project look better.
+  memory. Check flag defaults against `build_parser` before quoting them.
+- State limitations in the open. The SoundCloud bot-detection block, the
+  unvalidated selectors, the ~130 kbps ceiling and the `--privacy` default
+  mismatch are documented, not softened. Do not hedge one to make the project
+  look better, and do not cut one to save words: cut a feature section instead.
 - No corporate filler: "leverage", "seamless", "robust", "comprehensive",
   "delve", "it's worth noting", "in today's landscape".
 - No three-item rhetorical lists, no "Not only", no section that ends by
   summarising itself.
-- Do not add badges, a feature grid, a roadmap or an emoji header.
+- Badges are wanted, at the top, in one block. Every badge must point at
+  something real in this repo. No feature grid, no roadmap, no emoji header.
+- `[photoN]` markers are placeholders the owner replaces with screenshots.
+  Leave them alone unless you are adding the image.
 
 ## Code rules
 
