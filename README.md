@@ -5,11 +5,11 @@ library you spent years building. This gets your music onto your own disk, and
 your own recordings onto SoundCloud in one command. Early days, open source,
 fork it if you want to add to the project.
 
-[![CI](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml/badge.svg)](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/S1MS4/sc-scrape/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/S1MS4/sc-scrape/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![yt-dlp](https://img.shields.io/badge/Audio-yt--dlp-FF0000?logo=youtube&logoColor=white)](#how-it-works)
+[![yt-dlp](https://img.shields.io/badge/Audio-yt--dlp-FF0000?logo=youtube&logoColor=white)](#the-pipeline)
 [![Playwright](https://img.shields.io/badge/Upload-Playwright-2EAD33?logo=playwright&logoColor=white)](#uploading-to-soundcloud)
 [![Ruff](https://img.shields.io/badge/Lint-Ruff-D7FF64?logo=ruff&logoColor=black)](pyproject.toml)
 [![Tests](https://img.shields.io/badge/Tests-279%20offline-brightgreen)](#building-from-source)
@@ -20,7 +20,7 @@ fork it if you want to add to the project.
 [![Stars](https://img.shields.io/github/stars/S1MS4/sc-scrape?style=social)](https://github.com/S1MS4/sc-scrape/stargazers)
 
 <p align="center">
-  [photo1]
+  <img src="docs/photo1.png" alt="sc-scrape downloading an album" width="860">
 </p>
 
 Paste a link, get a folder of tagged audio with cover art. Re-run it and it
@@ -47,21 +47,15 @@ file of any of those. **No Spotify account or API key needed.**
 `playwright install chromium`.
 
 <p align="center">
-  [photo2]
+  <img src="docs/photo2.png" alt="the album folder sc-scrape produces" width="860">
 </p>
 
-## How it works
+## The pipeline
 
-```
-Spotify / YouTube  ──►  tracklist  ──►  yt-dlp + ffmpeg  ──►  Songs/Album/
-                                                                   │
-                                                              --upload
-                                                                   ▼
-                                                            SoundCloud set
-```
+<p align="center">
+  <img src="docs/scheme.png" alt="Spotify and YouTube into a tagged album folder, then optionally SoundCloud" width="900">
+</p>
 
-Spotify supplies metadata only: titles, artists, cover art. Every byte of audio
-comes from YouTube, matched against that metadata by title, artist and duration.
 Nothing here circumvents DRM or an access control, and support for
 DRM-protected sources is out of scope. That is what separates a lawful tool
 from a circumvention device under DMCA 1201.
@@ -89,7 +83,7 @@ route is to be a real browser: start Chrome with `--remote-debugging-port=9222`
 and pass `--attach`. Note `--privacy` defaults to `public`.
 
 <p align="center">
-  [photo3]
+  <img src="docs/photo3.png" alt="a dry run reporting which selectors resolve" width="860">
 </p>
 
 ## Building from source
