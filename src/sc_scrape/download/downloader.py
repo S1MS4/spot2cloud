@@ -305,6 +305,20 @@ def _first_entry(info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return entries[0]
 
 
+def _format_suffix(base_opts: Optional[Dict[str, Any]]) -> str:
+    """Extension the configured ``--format`` will produce.
+
+    Read back off the extract-audio post-processor rather than threading the
+    format through every call site, so the skip probe looks for the file the
+    download would actually write.
+    """
+    for processor in (base_opts or {}).get("postprocessors") or []:
+        codec = processor.get("preferredcodec")
+        if codec:
+            return ".%s" % codec
+    return ".%s" % AUDIO_FORMAT_DEFAULT
+
+
 def probe_existing_download(
     url: str,
     output_dir: Path,
@@ -358,7 +372,7 @@ def probe_existing_download(
                 return None
             info = entry
         title = info.get("title")
-        target = _target_path_for_track(output_dir, track, info, downloaded.suffix or ".mp3")
+        target = _target_path_for_track(output_dir, track, info, _format_suffix(base_opts))
         if target.exists():
             return DownloadResult.skipped(
                 url, title, target, "already downloaded (%s)" % target.name

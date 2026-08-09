@@ -1404,6 +1404,47 @@ class TestRunJob(unittest.TestCase):
         self.assertEqual(2, len(results), "a broken UI callback must not lose results")
 
 
+class TestProbeExistingDownload(unittest.TestCase):
+    """The skip-existing probe for tracks that are not authoritative.
+
+    This path used to reference an undefined name, which the surrounding
+    ``except Exception`` swallowed into ``None`` -- so every non-authoritative
+    track was silently re-downloaded instead of skipped.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def _probe(self, opts=None):
+        info = {"id": "vid1", "title": "Example Track", "_type": "video"}
+        fake = _FakeYDL({"https://youtu.be/vid1": info})
+        with mock.patch.object(downloader, "YoutubeDL", fake):
+            return downloader.probe_existing_download(
+                "https://youtu.be/vid1",
+                self.dir,
+                opts,
+                track=Track(query="https://youtu.be/vid1", title=None),
+            )
+
+    def test_existing_file_is_reported_as_skipped(self):
+        (self.dir / "Example Track.mp3").write_bytes(b"ID3")
+        result = self._probe(downloader.build_ydl_opts(self.dir))
+        self.assertIsNotNone(result, "an existing file must not be re-downloaded")
+        self.assertEqual(models.STATUS_SKIPPED, result.status)
+
+    def test_missing_file_probes_to_none(self):
+        self.assertIsNone(self._probe(downloader.build_ydl_opts(self.dir)))
+
+    def test_the_probe_follows_the_requested_format(self):
+        (self.dir / "Example Track.opus").write_bytes(b"OggS")
+        opts = downloader.build_ydl_opts(self.dir, audio_format="opus")
+        result = self._probe(opts)
+        self.assertIsNotNone(result, "--format opus must look for the .opus file")
+        self.assertEqual("Example Track.opus", result.path.name)
+
+
 class TestClampWorkers(unittest.TestCase):
     """Worker counts are clamped rather than trusted."""
 
