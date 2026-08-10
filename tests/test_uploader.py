@@ -623,6 +623,33 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(uploader.existing_titles(page), set())
 
 
+class LandingPageTests(unittest.TestCase):
+    """SoundCloud redirects /upload instead of erroring when it will not serve it."""
+
+    def _upload_to(self, url):
+        page = FakePage(url=url)
+        _attached_frame(page)
+        with mock.patch.object(uploader, "_engine", return_value=mock.Mock()):
+            uploader.upload_album(page, _album("One"), skip_existing=False)
+
+    def test_the_onboarding_wall_is_named_as_the_reason(self):
+        with self.assertRaises(uploader.UploadError) as caught:
+            self._upload_to("https://soundcloud.com/welcome")
+        message = str(caught.exception)
+        self.assertIn("/welcome", message)
+        self.assertIn("onboarding", message, "the user has to be told what to go and do")
+
+    def test_a_signed_out_session_says_to_log_in_again(self):
+        with self.assertRaises(uploader.UploadError) as caught:
+            self._upload_to("https://soundcloud.com/signin")
+        self.assertIn("--login", str(caught.exception))
+
+    def test_any_other_wrong_page_still_fails_fast(self):
+        with self.assertRaises(uploader.UploadError) as caught:
+            self._upload_to("https://soundcloud.com/discover")
+        self.assertIn("/discover", str(caught.exception))
+
+
 class UploadAlbumTests(unittest.TestCase):
     def setUp(self):
         self.engine = mock.Mock()

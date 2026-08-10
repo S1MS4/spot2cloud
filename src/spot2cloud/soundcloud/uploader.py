@@ -585,6 +585,7 @@ def check_selectors(page: Page) -> Dict[str, bool]:
     engine.set_asset_blocking(page, False)
     engine.goto(page, UPLOAD_URL)
     dismiss_consent(page)
+    _assert_on_upload_page(page)
     frame = wait_for_upload_frame(page)
 
     results = {}
@@ -784,6 +785,7 @@ def upload_album(
 
     engine.goto(page, UPLOAD_URL)
     dismiss_consent(page)
+    _assert_on_upload_page(page)
     frame = wait_for_upload_frame(page)
 
     pending = []
@@ -870,6 +872,30 @@ def _report_plan(frame, tracks, files, privacy, credit) -> None:
     )
     for track, path in zip(tracks, files):
         logger.info("dry run:   %s -> %r", Path(path).name, track.title)
+
+
+#: SoundCloud answers /upload with a redirect, not an error, when the account
+#: cannot upload yet. Each of these needs something from the user that cannot be
+#: done from here, and without the check below the run just burns its whole form
+#: budget hunting for fields on a page that has none.
+_INTERSTITIALS = (
+    (
+        "/welcome",
+        "the account has not finished onboarding: open soundcloud.com, answer "
+        '"What are you looking to do on SoundCloud?", then run this again',
+    ),
+    ("/signin", "the saved session is not signed in any more; run --login again"),
+)
+
+
+def _assert_on_upload_page(page) -> None:
+    """Fail immediately if we did not land on the upload page."""
+    url = getattr(page, "url", "") or ""
+    for marker, remedy in _INTERSTITIALS:
+        if marker in url:
+            raise UploadError("SoundCloud redirected to %s: %s" % (url, remedy))
+    if "/upload" not in url:
+        raise UploadError("expected the upload page, landed on %s" % url)
 
 
 def _wait_for_form(frame, attached: int = 1) -> None:
