@@ -553,23 +553,39 @@ def dismiss_consent(page: Page) -> bool:
     return False
 
 
-def _describe_clickables(page, limit: int = 15):
+def _describe_clickables(page, limit: int = 60):
     """What is actually on the page, for when a selector guess misses.
 
-    The live DOM has never been readable from here, so when the close button
-    cannot be found the next best thing is to print what was there instead.
+    Ordered by how likely each element is to be the overlay's own control: the
+    header renders first in the DOM and would otherwise fill the whole list, as
+    it did the first time this ran. Anything sitting in a dialog, or painted
+    over the page, is hoisted to the top and marked.
     """
     try:
         return page.evaluate(
-            """() => Array.from(document.querySelectorAll('button,[role=button],a'))
-                .slice(0, %d)
-                .map(el => [
-                    el.tagName,
-                    el.getAttribute('aria-label') || '',
-                    el.getAttribute('title') || '',
-                    String(el.className || '').slice(0, 50),
-                    (el.innerText || '').trim().slice(0, 25),
-                ].join(' | '))"""
+            """() => {
+                const modal = el => el.closest(
+                    '[role=dialog],[aria-modal=true],[class*=modal i],[class*=overlay i]'
+                ) !== null;
+                const lifted = el => {
+                    const z = parseInt(getComputedStyle(el).zIndex, 10);
+                    return Number.isFinite(z) && z > 0;
+                };
+                return Array.from(
+                    document.querySelectorAll('button,[role=button],a,svg[class*=close i]')
+                )
+                    .map(el => ({ el, near: modal(el) || lifted(el) }))
+                    .sort((a, b) => (b.near === true) - (a.near === true))
+                    .slice(0, %d)
+                    .map(({ el, near }) => [
+                        near ? 'OVERLAY' : '       ',
+                        el.tagName,
+                        el.getAttribute('aria-label') || '',
+                        el.getAttribute('title') || '',
+                        String(el.className || '').slice(0, 45),
+                        (el.innerText || '').trim().slice(0, 25),
+                    ].join(' | '));
+            }"""
             % limit
         )
     except Exception:  # noqa: BLE001 - a diagnostic must never break the run
@@ -584,12 +600,18 @@ def dismiss_welcome(page: Page) -> bool:
     records a preference against the user\'s account, and nothing here should
     be making that choice on their behalf. The X only dismisses.
     """
+    # Scoped to the overlay first. A bare [aria-label="Close"] matches the
+    # promotional banner's own close button, which sits underneath the wall and
+    # so is never clickable: Playwright waits for actionability and times out.
     for selector in (
-        'button[aria-label*="close" i]',
-        'button[title*="close" i]',
+        '[role="dialog"] button[aria-label*="close" i]',
+        '[aria-modal="true"] button[aria-label*="close" i]',
+        '[class*="modal" i] button[aria-label*="close" i]',
+        '[class*="overlay" i] button[aria-label*="close" i]',
+        '[role="dialog"] button:has(svg)',
+        'button[aria-label*="close" i]:not(.banner__close)',
+        'button[title*="close" i]:not(.banner__close)',
         '[data-testid*="close" i]',
-        '[class*="close" i][role="button"]',
-        'button:has(svg[aria-label*="close" i])',
     ):
         try:
             loc = page.locator(selector)

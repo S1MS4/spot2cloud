@@ -649,7 +649,7 @@ class LandingPageTests(unittest.TestCase):
         # would record a preference against the user's account.
         page = FakePage(
             url="https://soundcloud.com/welcome",
-            present={'button[aria-label*="close" i]': 1},
+            present={'[role="dialog"] button[aria-label*="close" i]': 1},
         )
         engine = mock.Mock()
         engine.goto.side_effect = lambda _page, url: setattr(page, "url", url)
@@ -657,7 +657,7 @@ class LandingPageTests(unittest.TestCase):
         uploader._assert_on_upload_page(page, engine)
 
         self.assertEqual("https://soundcloud.com/upload", page.url)
-        self.assertIn('button[aria-label*="close" i]', page.clicks)
+        self.assertIn('[role="dialog"] button[aria-label*="close" i]', page.clicks)
 
     def test_an_undismissable_welcome_wall_still_explains_itself(self):
         page = FakePage(url="https://soundcloud.com/welcome")
