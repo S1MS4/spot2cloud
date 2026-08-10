@@ -21,6 +21,7 @@ module can be imported (and its scanning half tested) without Playwright.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import subprocess
@@ -129,6 +130,12 @@ FORM_TIMEOUT_PER_FILE_MS = 15_000
 # prefilled asynchronously, and a value written before the prefill arrives is
 # simply overwritten by it.
 FORM_SETTLE_MS = 1500
+
+# goto only waits for domcontentloaded, and SoundCloud is a React app: the
+# bounce from /upload to /welcome is client-side and lands after that. Reading
+# page.url immediately therefore sees /upload on a page that is about to become
+# the onboarding wall, so give the redirect a beat to happen.
+REDIRECT_SETTLE_MS = 2500
 
 _FILENAME_TRACK_RE = re.compile(r"^\s*(\d{1,3})\s*[-._)]\s*")
 _TRACK_NUMBER_RE = re.compile(r"^\s*(\d+)")
@@ -546,6 +553,29 @@ def dismiss_consent(page: Page) -> bool:
     return False
 
 
+def _describe_clickables(page, limit: int = 15):
+    """What is actually on the page, for when a selector guess misses.
+
+    The live DOM has never been readable from here, so when the close button
+    cannot be found the next best thing is to print what was there instead.
+    """
+    try:
+        return page.evaluate(
+            """() => Array.from(document.querySelectorAll('button,[role=button],a'))
+                .slice(0, %d)
+                .map(el => [
+                    el.tagName,
+                    el.getAttribute('aria-label') || '',
+                    el.getAttribute('title') || '',
+                    String(el.className || '').slice(0, 50),
+                    (el.innerText || '').trim().slice(0, 25),
+                ].join(' | '))"""
+            % limit
+        )
+    except Exception:  # noqa: BLE001 - a diagnostic must never break the run
+        return []
+
+
 def dismiss_welcome(page: Page) -> bool:
     """Close the "What are you looking to do on SoundCloud?" interstitial.
 
@@ -570,6 +600,13 @@ def dismiss_welcome(page: Page) -> bool:
                 return True
         except Exception:  # noqa: BLE001 - wrong guess, try the next shape
             continue
+
+    found = _describe_clickables(page)
+    if found:
+        logger.warning(
+            "could not find the welcome close button. What is on the page:\n  %s",
+            "\n  ".join(found),
+        )
     return False
 
 
@@ -814,6 +851,8 @@ def upload_album(
     dismiss_consent(page)
     _assert_on_upload_page(page, engine)
     frame = wait_for_upload_frame(page)
+    # The frame wait is another 15s in which SoundCloud can still bounce us.
+    _assert_on_upload_page(page, engine)
 
     pending = []
     for track in album.tracks:
@@ -923,6 +962,10 @@ def _assert_on_upload_page(page, engine=None) -> None:
     user, so it fails immediately rather than burning the form budget on a page
     that has no form.
     """
+    # Let any client-side redirect land before reading the URL.
+    with contextlib.suppress(Exception):
+        page.wait_for_timeout(REDIRECT_SETTLE_MS)
+
     stuck_on_welcome = "/welcome" in (getattr(page, "url", "") or "")
     if stuck_on_welcome and engine is not None and dismiss_welcome(page):
         engine.goto(page, UPLOAD_URL)
