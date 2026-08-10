@@ -118,9 +118,12 @@ FRAME_SETTLE_MS = 15_000
 # chain of dead selectors does not stall the run.
 RESOLVE_TIMEOUT_MS = 4000
 
-# The metadata form is built after the files are read, which takes longer than a
-# re-render.
+# The metadata form is built only after the browser has read every attached
+# file, so the wait has to scale with the album. A flat 20s was sized against a
+# single track and times out on anything bigger: eleven MP3s is ~54 MB, and the
+# form does not exist until SoundCloud has chewed through all of it.
 FORM_TIMEOUT_MS = 20_000
+FORM_TIMEOUT_PER_FILE_MS = 15_000
 
 # One deliberate beat, and the only one: the title and artist fields are
 # prefilled asynchronously, and a value written before the prefill arrives is
@@ -804,7 +807,7 @@ def upload_album(
         return None
 
     _chain(frame, "file_input").first.set_input_files(files)
-    _wait_for_form(frame)
+    _wait_for_form(frame, len(files))
 
     if is_album_form(frame):
         # Multiple files: the set editor is showing, which names the album in
@@ -869,9 +872,20 @@ def _report_plan(frame, tracks, files, privacy, credit) -> None:
         logger.info("dry run:   %s -> %r", Path(path).name, track.title)
 
 
-def _wait_for_form(frame) -> None:
-    """Block until the metadata form exists and has finished prefilling itself."""
-    _chain(frame, "title_input", timeout_ms=FORM_TIMEOUT_MS)
+def _wait_for_form(frame, attached: int = 1) -> None:
+    """Block until the metadata form exists and has finished prefilling itself.
+
+    ``attached`` is how many files were just handed over. The budget grows with
+    it because nothing appears until the browser has read them all, and a whole
+    album takes minutes rather than seconds.
+    """
+    budget = FORM_TIMEOUT_MS + FORM_TIMEOUT_PER_FILE_MS * max(0, attached - 1)
+    logger.info(
+        "waiting up to %ds for the upload form (%d file(s) attached)",
+        budget // 1000,
+        attached,
+    )
+    _chain(frame, "title_input", timeout_ms=budget)
     frame.wait_for_timeout(FORM_SETTLE_MS)
 
 
