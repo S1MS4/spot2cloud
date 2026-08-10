@@ -546,6 +546,33 @@ def dismiss_consent(page: Page) -> bool:
     return False
 
 
+def dismiss_welcome(page: Page) -> bool:
+    """Close the "What are you looking to do on SoundCloud?" interstitial.
+
+    SoundCloud redirects /upload here until the account answers it. The close
+    button is used rather than one of the four cards on purpose: picking a card
+    records a preference against the user\'s account, and nothing here should
+    be making that choice on their behalf. The X only dismisses.
+    """
+    for selector in (
+        'button[aria-label*="close" i]',
+        'button[title*="close" i]',
+        '[data-testid*="close" i]',
+        '[class*="close" i][role="button"]',
+        'button:has(svg[aria-label*="close" i])',
+    ):
+        try:
+            loc = page.locator(selector)
+            if loc.count():
+                loc.first.click(timeout=RESOLVE_TIMEOUT_MS)
+                page.wait_for_timeout(1500)
+                logger.info("dismissed the welcome interstitial via %s", selector)
+                return True
+        except Exception:  # noqa: BLE001 - wrong guess, try the next shape
+            continue
+    return False
+
+
 def _chain(scope, key: str, timeout_ms: int = RESOLVE_TIMEOUT_MS) -> Locator:
     """First selector in ``SELECTORS[key]`` that matches ``scope``, as a locator.
 
@@ -585,7 +612,7 @@ def check_selectors(page: Page) -> Dict[str, bool]:
     engine.set_asset_blocking(page, False)
     engine.goto(page, UPLOAD_URL)
     dismiss_consent(page)
-    _assert_on_upload_page(page)
+    _assert_on_upload_page(page, engine)
     frame = wait_for_upload_frame(page)
 
     results = {}
@@ -785,7 +812,7 @@ def upload_album(
 
     engine.goto(page, UPLOAD_URL)
     dismiss_consent(page)
-    _assert_on_upload_page(page)
+    _assert_on_upload_page(page, engine)
     frame = wait_for_upload_frame(page)
 
     pending = []
@@ -888,8 +915,19 @@ _INTERSTITIALS = (
 )
 
 
-def _assert_on_upload_page(page) -> None:
-    """Fail immediately if we did not land on the upload page."""
+def _assert_on_upload_page(page, engine=None) -> None:
+    """Get past whatever SoundCloud put in front of /upload, or say why we cannot.
+
+    The welcome wall is dismissable, so it is worth one attempt at the close
+    button and a second navigation before giving up. Everything else needs the
+    user, so it fails immediately rather than burning the form budget on a page
+    that has no form.
+    """
+    if "/welcome" in (getattr(page, "url", "") or "") and dismiss_welcome(page):
+        if engine is not None:
+            engine.goto(page, UPLOAD_URL)
+            dismiss_consent(page)
+
     url = getattr(page, "url", "") or ""
     for marker, remedy in _INTERSTITIALS:
         if marker in url:

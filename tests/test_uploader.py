@@ -644,6 +644,27 @@ class LandingPageTests(unittest.TestCase):
             self._upload_to("https://soundcloud.com/signin")
         self.assertIn("--login", str(caught.exception))
 
+    def test_the_welcome_wall_is_closed_and_the_upload_page_retried(self):
+        # The X is clicked rather than one of the four cards: picking a card
+        # would record a preference against the user's account.
+        page = FakePage(
+            url="https://soundcloud.com/welcome",
+            present={'button[aria-label*="close" i]': 1},
+        )
+        engine = mock.Mock()
+        engine.goto.side_effect = lambda _page, url: setattr(page, "url", url)
+
+        uploader._assert_on_upload_page(page, engine)
+
+        self.assertEqual("https://soundcloud.com/upload", page.url)
+        self.assertIn('button[aria-label*="close" i]', page.clicks)
+
+    def test_an_undismissable_welcome_wall_still_explains_itself(self):
+        page = FakePage(url="https://soundcloud.com/welcome")
+        with self.assertRaises(uploader.UploadError) as caught:
+            uploader._assert_on_upload_page(page, mock.Mock())
+        self.assertIn("onboarding", str(caught.exception))
+
     def test_any_other_wrong_page_still_fails_fast(self):
         with self.assertRaises(uploader.UploadError) as caught:
             self._upload_to("https://soundcloud.com/discover")
