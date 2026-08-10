@@ -923,10 +923,10 @@ def _assert_on_upload_page(page, engine=None) -> None:
     user, so it fails immediately rather than burning the form budget on a page
     that has no form.
     """
-    if "/welcome" in (getattr(page, "url", "") or "") and dismiss_welcome(page):
-        if engine is not None:
-            engine.goto(page, UPLOAD_URL)
-            dismiss_consent(page)
+    stuck_on_welcome = "/welcome" in (getattr(page, "url", "") or "")
+    if stuck_on_welcome and engine is not None and dismiss_welcome(page):
+        engine.goto(page, UPLOAD_URL)
+        dismiss_consent(page)
 
     url = getattr(page, "url", "") or ""
     for marker, remedy in _INTERSTITIALS:
