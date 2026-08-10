@@ -969,8 +969,11 @@ def _report_plan(frame, tracks, files, privacy, credit) -> None:
 _INTERSTITIALS = (
     (
         "/welcome",
-        "the account has not finished onboarding: open soundcloud.com, answer "
-        '"What are you looking to do on SoundCloud?", then run this again',
+        "the onboarding wall. If you have already clicked through it in your "
+        "own browser, that is the problem: --state-file is a snapshot taken at "
+        "--login time and still carries the pre-onboarding state. Either run "
+        "--login again to refresh it, or use --attach to drive the browser that "
+        "is genuinely signed in",
     ),
     ("/signin", "the saved session is not signed in any more; run --login again"),
 )
