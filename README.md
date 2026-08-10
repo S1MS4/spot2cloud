@@ -5,6 +5,9 @@ library you spent years building. This gets your music onto your own disk, and
 your own recordings onto SoundCloud in one command. Early days, open source,
 fork it if you want to add to the project.
 
+### *IMPORTANT NOTE*
+#### Soundcloud uploading might be currently broken because of the soundcloud antibot measures i will look how to solve this and ship the patch soon
+
 [![CI](https://img.shields.io/github/actions/workflow/status/S1MS4/spot2cloud/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/S1MS4/spot2cloud/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#quick-start)
